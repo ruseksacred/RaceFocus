@@ -13,6 +13,7 @@ UI prototype (3 screens + logo concepts): https://claude.ai/artifact/TwpgGvPBKNc
 - A wrong tap adds a time penalty, so speed does not beat accuracy.
 - Every board is generated from a **seed**. Same seed = same layout for every player in a given race.
 - Timing: lap time, best lap per track, delta to own best lap (green = improvement, purple = fastest of the race).
+- Solo session: the player types the lap count (1–99). Lights before lap 1 only; later laps start automatically after a short break. Live delta to the session best and the personal best, compared split by split. Flags: yellow after a wrong tap, white before the final lap, chequered at the finish, then a session summary.
 
 ## Features and decisions
 
@@ -54,6 +55,7 @@ Style inspired by F1.com colors (palette only). Do not use the F1 logo, its type
 | muted | `#A3ACBD` | secondary text |
 | purple | `#B57BFF` | fastest lap in a race |
 | green | `#3DDC84` | personal best / improvement |
+| yellow | `#FFD12E` | yellow flag after a wrong tap |
 
 Fonts: Barlow Condensed (headings, numbers, timers) and Inter (body). Use tabular numbers for all timers. Keep text contrast at least 4.5:1.
 

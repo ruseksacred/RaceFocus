@@ -5,6 +5,29 @@ export function deltaMs(lapMs: number, bestMs: number | null | undefined): numbe
   return bestMs == null ? null : lapMs - bestMs;
 }
 
+/**
+ * Live delta against a reference lap, updated as the player taps.
+ *
+ * At each cleared number it compares the current split with the reference split
+ * for the same number. Between taps, once the clock passes the reference time for
+ * the next number, the delta keeps growing so a slow stretch shows at once.
+ * Returns null when there is no reference or nothing to compare yet.
+ */
+export function liveDeltaMs(
+  splits: readonly number[],
+  reference: readonly number[] | null | undefined,
+  now: number,
+): number | null {
+  if (!reference || reference.length === 0) return null;
+  const k = splits.length;
+  const atSplit = k > 0 && k <= reference.length ? splits[k - 1] - reference[k - 1] : null;
+  const nextRef = reference[k];
+  const running = nextRef !== undefined && now > nextRef ? now - nextRef : null;
+  if (atSplit === null) return running;
+  if (running === null) return atSplit;
+  return Math.max(atSplit, running);
+}
+
 export function deltaKind(delta: number | null): DeltaKind {
   if (delta === null) return 'none';
   if (delta < 0) return 'improvement';

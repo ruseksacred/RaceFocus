@@ -3,14 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FlagBanner, type FlagKind } from '@/components/flag';
 import {
-  accuracy,
   addLap,
   applyTap,
   createLap,
   createSession,
   currentLapNumber,
-  deltaKind,
   deltaMs,
   elapsedMs,
   formatDelta,
@@ -18,9 +17,12 @@ import {
   getTrack,
   isCleared,
   isComplete,
+  isFinalLap,
   lapTimeMs,
+  liveDeltaMs,
   MODES,
   nextTarget,
+  parseLapCount,
   randomSeed,
   sessionBest,
   sessionBestIndex,
@@ -33,22 +35,33 @@ import {
 import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
 
-type Phase = 'countdown' | 'running' | 'finished' | 'summary';
+/**
+ * countdown → running → lapBreak → running … → finish → summary.
+ * Lights only before the first lap; later laps start on their own.
+ */
+type Phase = 'countdown' | 'running' | 'lapBreak' | 'finish' | 'summary';
+
+/** Reference laps for the live delta, fixed when a lap starts. */
+interface References {
+  session: number[] | null;
+  personal: number[] | null;
+}
 
 interface LapResult {
   lapMs: number;
-  /** Personal best before this lap. */
-  previousPersonalBest: number | null;
-  /** Fastest lap of this session before this lap. */
-  previousSessionBest: number | null;
+  deltaSession: number | null;
+  deltaPersonal: number | null;
   personalBest: boolean;
   sessionBest: boolean;
-  mistakes: number;
-  accuracy: number;
+  firstLap: boolean;
 }
 
 const COUNTDOWN_FROM = 3;
 const COUNTDOWN_STEP_MS = 700;
+const LAP_BREAK_MS = 1800;
+const FINISH_MS = 2600;
+const YELLOW_FLAG_MS = 2000;
+const DEFAULT_LAPS = 5;
 const MODE_NAMES: Record<Mode, string> = { ascending: '1 → N', descending: 'Countdown' };
 
 /**
@@ -61,41 +74,51 @@ export default function RaceScreen() {
   const params = useLocalSearchParams<{ track?: string; mode?: string; laps?: string }>();
   const track = getTrack(params.track ?? '') ?? getTrack('circuit')!;
   const mode: Mode = MODES.includes(params.mode as Mode) ? (params.mode as Mode) : 'ascending';
-  const lapCount = Number(params.laps);
-  const targetLaps = Number.isInteger(lapCount) && lapCount > 0 ? lapCount : null;
+  const targetLaps = parseLapCount(params.laps ?? '') ?? DEFAULT_LAPS;
   return <Race track={track} mode={mode} targetLaps={targetLaps} />;
 }
 
-function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLaps: number | null }) {
+function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLaps: number }) {
   const key = recordKey(track.id, mode);
   const personalBest = useRecords((state) => state.bestLaps[key] ?? null);
   const submitLap = useRecords((state) => state.submitLap);
 
   const [session, setSession] = useState<Session>(() => createSession(targetLaps));
   const [lap, setLap] = useState<LapState>(() => newLap(track, mode));
+  const [refs, setRefs] = useState<References>({ session: null, personal: null });
   const [phase, setPhase] = useState<Phase>('countdown');
   const [countdown, setCountdown] = useState(COUNTDOWN_FROM);
   const [now, setNow] = useState(0);
   const [wrongValue, setWrongValue] = useState<number | null>(null);
+  const [yellowAt, setYellowAt] = useState<number | null>(null);
   const [result, setResult] = useState<LapResult | null>(null);
 
   const lapRef = useRef(lap);
+  const sessionRef = useRef(session);
   const startRef = useRef(0);
 
-  // Lights countdown, then start the clock.
+  const startLap = useCallback(() => {
+    const current = sessionRef.current;
+    const best = useRecords.getState().bestLaps[key];
+    setRefs({ session: sessionBest(current)?.splits ?? null, personal: best?.splits ?? null });
+    const fresh = newLap(track, mode);
+    lapRef.current = fresh;
+    setLap(fresh);
+    setResult(null);
+    startRef.current = performance.now();
+    setNow(0);
+    setPhase('running');
+  }, [key, track, mode]);
+
+  // Lights before the first lap.
   useEffect(() => {
     if (phase !== 'countdown') return;
     const id = setTimeout(() => {
-      if (countdown > 1) {
-        setCountdown(countdown - 1);
-        return;
-      }
-      startRef.current = performance.now();
-      setNow(0);
-      setPhase('running');
+      if (countdown > 1) setCountdown(countdown - 1);
+      else startLap();
     }, COUNTDOWN_STEP_MS);
     return () => clearTimeout(id);
-  }, [phase, countdown]);
+  }, [phase, countdown, startLap]);
 
   // Running clock.
   useEffect(() => {
@@ -104,11 +127,31 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
     return () => clearInterval(id);
   }, [phase]);
 
+  // Short break between laps, then the next lap starts by itself.
+  useEffect(() => {
+    if (phase !== 'lapBreak') return;
+    const id = setTimeout(startLap, LAP_BREAK_MS);
+    return () => clearTimeout(id);
+  }, [phase, startLap]);
+
+  // Chequered flag, then the results.
+  useEffect(() => {
+    if (phase !== 'finish') return;
+    const id = setTimeout(() => setPhase('summary'), FINISH_MS);
+    return () => clearTimeout(id);
+  }, [phase]);
+
   useEffect(() => {
     if (wrongValue === null) return;
     const id = setTimeout(() => setWrongValue(null), 250);
     return () => clearTimeout(id);
   }, [wrongValue]);
+
+  useEffect(() => {
+    if (yellowAt === null) return;
+    const id = setTimeout(() => setYellowAt(null), YELLOW_FLAG_MS);
+    return () => clearTimeout(id);
+  }, [yellowAt]);
 
   const onTap = useCallback(
     (value: number) => {
@@ -118,41 +161,51 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
       lapRef.current = outcome.state;
       setLap(outcome.state);
 
-      if (outcome.result === 'wrong') setWrongValue(value);
+      if (outcome.result === 'wrong') {
+        setWrongValue(value);
+        setYellowAt(at);
+      }
       if (outcome.result === 'finished') {
         const lapMs = lapTimeMs(outcome.state)!;
-        const previousSessionBest = sessionBest(session);
-        const isPersonalBest = submitLap(key, lapMs);
-        setSession(addLap(session, lapMs));
+        const previous = sessionRef.current;
+        const previousBest = sessionBest(previous);
+        const previousPersonal = useRecords.getState().bestLaps[key] ?? null;
+        const isPersonalBest = submitLap(key, { ms: lapMs, splits: outcome.state.splits });
+        const updated = addLap(previous, {
+          ms: lapMs,
+          splits: outcome.state.splits,
+          mistakes: outcome.state.mistakes,
+        });
+        sessionRef.current = updated;
+        setSession(updated);
         setNow(at);
         setResult({
           lapMs,
-          previousPersonalBest: personalBest,
-          previousSessionBest,
+          deltaSession: deltaMs(lapMs, previousBest?.ms),
+          deltaPersonal: deltaMs(lapMs, previousPersonal?.ms),
           personalBest: isPersonalBest,
-          sessionBest: previousSessionBest === null || lapMs < previousSessionBest,
-          mistakes: outcome.state.mistakes,
-          accuracy: accuracy(outcome.state),
+          sessionBest: previousBest === null || lapMs < previousBest.ms,
+          firstLap: previousBest === null,
         });
-        setPhase('finished');
+        setPhase(isComplete(updated) ? 'finish' : 'lapBreak');
       }
     },
-    [phase, key, personalBest, session, submitLap],
+    [phase, key, submitLap],
   );
 
-  const startLap = () => {
-    const fresh = newLap(track, mode);
-    lapRef.current = fresh;
-    setLap(fresh);
+  const restart = () => {
+    const fresh = createSession(targetLaps);
+    sessionRef.current = fresh;
+    setSession(fresh);
     setResult(null);
-    setNow(0);
+    setYellowAt(null);
     setCountdown(COUNTDOWN_FROM);
     setPhase('countdown');
   };
 
-  const restart = () => {
-    setSession(createSession(targetLaps));
-    startLap();
+  const endOrExit = () => {
+    if (session.laps.length > 0) setPhase('summary');
+    else router.back();
   };
 
   const { width } = useWindowDimensions();
@@ -167,58 +220,72 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
           session={session}
           track={track}
           mode={mode}
-          personalBest={personalBest}
+          personalBestMs={personalBest?.ms ?? null}
           onRestart={restart}
         />
       </SafeAreaView>
     );
   }
 
+  const betweenLaps = phase === 'lapBreak' || phase === 'finish';
   // After a finish the session already holds the lap just driven.
-  const lapNumber = phase === 'finished' ? session.laps.length : currentLapNumber(session);
-  const lapLabel = targetLaps === null ? `Lap ${lapNumber}` : `Lap ${lapNumber} / ${targetLaps}`;
+  const lapNumber = betweenLaps ? session.laps.length : currentLapNumber(session);
   const time = phase === 'countdown' ? 0 : elapsedMs(lap, now);
   const total = lap.targets.length;
   const target = nextTarget(lap);
-  const best = sessionBest(session);
-  const lastLap = session.laps.at(-1);
+
+  const liveSession = phase === 'countdown' ? null : liveDeltaMs(lap.splits, refs.session, time);
+  const livePersonal = phase === 'countdown' ? null : liveDeltaMs(lap.splits, refs.personal, time);
+
+  let flag: FlagKind | null = null;
+  if (phase === 'finish') flag = 'chequered';
+  else if (yellowAt !== null && phase === 'running') flag = 'yellow';
+  else if (isFinalLap(session)) flag = 'white';
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.content}>
         <View style={styles.header}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={endOrExit}
             accessibilityRole="button"
-            accessibilityLabel="Exit to menu"
+            accessibilityLabel={session.laps.length > 0 ? 'End session' : 'Exit to menu'}
             hitSlop={12}>
-            <Text style={styles.exit}>‹ Exit</Text>
+            <Text style={styles.exit}>{session.laps.length > 0 ? '‹ End' : '‹ Exit'}</Text>
           </Pressable>
           <Text style={label}>
-            {lapLabel} · {track.size}×{track.size} {track.name}
+            Lap {lapNumber} / {targetLaps} · {track.size}×{track.size} {track.name}
           </Text>
         </View>
+
+        <FlagBanner flag={flag} />
 
         <Text style={[styles.timer, tabular]} accessibilityLabel={`Lap time ${formatLapTime(time)}`}>
           {formatLapTime(time)}
         </Text>
 
         <View style={styles.stats}>
-          <Stat title="Session best" value={best === null ? '—' : formatLapTime(best)} color={colors.purple} />
-          <Stat title="Personal best" value={personalBest === null ? '—' : formatLapTime(personalBest)} />
-          <Stat
-            title="Penalties"
-            value={lap.mistakes === 0 ? '0' : `+${lap.mistakes}.0 s`}
-            color={lap.mistakes > 0 ? colors.red : colors.muted}
-          />
+          <Delta title="Δ session best" delta={liveSession} reference={refs.session} />
+          <Delta title="Δ personal best" delta={livePersonal} reference={refs.personal} />
+          <View style={styles.stat}>
+            <Text style={[label, styles.statLabel]}>Penalties</Text>
+            <Text style={[styles.statValue, tabular, lap.mistakes > 0 && { color: colors.yellow }]}>
+              {lap.mistakes === 0 ? '0' : `+${lap.mistakes}.0 s`}
+            </Text>
+          </View>
         </View>
 
-        {phase === 'finished' && result ? (
-          <ResultCard
+        {betweenLaps && result ? (
+          <LapCard
             result={result}
-            sessionDone={isComplete(session)}
-            onNext={startLap}
-            onEnd={() => setPhase('summary')}
+            lapNumber={lapNumber}
+            footer={
+              phase === 'finish'
+                ? 'Session complete'
+                : isFinalLap(session)
+                  ? 'Final lap starting…'
+                  : `Lap ${lapNumber + 1} starting…`
+            }
           />
         ) : (
           <>
@@ -272,9 +339,9 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
               <Text style={[styles.small, tabular]}>
                 {lap.nextIndex} / {total}
               </Text>
-              {lastLap !== undefined && (
+              {session.laps.length > 0 && (
                 <Text style={[styles.small, tabular]}>
-                  L{session.laps.length} {formatLapTime(lastLap)}
+                  L{session.laps.length} {formatLapTime(session.laps.at(-1)!.ms)}
                 </Text>
               )}
             </View>
@@ -289,11 +356,30 @@ function newLap(track: Track, mode: Mode) {
   return createLap({ size: track.size, seed: randomSeed(), mode });
 }
 
-function Stat({ title, value, color = colors.muted }: { title: string; value: string; color?: string }) {
+/** Green when faster than the reference, red when slower. */
+function deltaColor(delta: number | null) {
+  if (delta === null || delta === 0) return colors.muted;
+  return delta < 0 ? colors.green : colors.red;
+}
+
+function Delta({
+  title,
+  delta,
+  reference,
+}: {
+  title: string;
+  delta: number | null;
+  reference: number[] | null;
+}) {
   return (
     <View style={styles.stat}>
       <Text style={[label, styles.statLabel]}>{title}</Text>
-      <Text style={[styles.statValue, tabular, { color }]}>{value}</Text>
+      <Text style={[styles.statValue, tabular, { color: deltaColor(delta) }]}>
+        {delta === null ? (reference ? '±0.00' : '—') : formatDelta(delta)}
+      </Text>
+      <Text style={[styles.statCaption, tabular]}>
+        {reference ? formatLapTime(reference.at(-1)!) : 'no lap yet'}
+      </Text>
     </View>
   );
 }
@@ -308,55 +394,35 @@ function Lights({ lit }: { lit: number }) {
   );
 }
 
-/** Delta text and color: purple for a session best, green for a personal best. */
-function deltaDisplay(delta: number | null, improvedColor: string) {
-  if (delta === null) return { text: '—', color: colors.muted };
-  return { text: formatDelta(delta), color: deltaKind(delta) === 'improvement' ? improvedColor : colors.muted };
-}
-
-function ResultCard({
-  result,
-  sessionDone,
-  onNext,
-  onEnd,
-}: {
-  result: LapResult;
-  sessionDone: boolean;
-  onNext: () => void;
-  onEnd: () => void;
-}) {
-  const vsSession = deltaDisplay(deltaMs(result.lapMs, result.previousSessionBest), colors.purple);
-  const vsPersonal = deltaDisplay(deltaMs(result.lapMs, result.previousPersonalBest), colors.green);
+function LapCard({ result, lapNumber, footer }: { result: LapResult; lapNumber: number; footer: string }) {
   const timeColor = result.personalBest ? colors.green : result.sessionBest ? colors.purple : colors.text;
-
   const badge = result.personalBest
-    ? { text: result.previousPersonalBest === null ? 'First lap set' : 'Personal best', color: colors.green }
-    : result.sessionBest && result.previousSessionBest !== null
+    ? { text: result.deltaPersonal === null ? 'First lap set' : 'Personal best', color: colors.green }
+    : result.sessionBest && !result.firstLap
       ? { text: 'Session best', color: colors.purple }
       : null;
 
   return (
     <View style={styles.result}>
-      {badge && <Text style={[label, styles.badge, { color: badge.color }]}>{badge.text}</Text>}
-      <Text style={label}>Lap time</Text>
+      <Text style={label}>Lap {lapNumber}</Text>
       <Text style={[styles.resultTime, tabular, { color: timeColor }]}>{formatLapTime(result.lapMs)}</Text>
-      <View style={styles.resultGrid}>
-        <Stat title="Δ session best" value={vsSession.text} color={vsSession.color} />
-        <Stat title="Δ personal best" value={vsPersonal.text} color={vsPersonal.color} />
-        <Stat title="Accuracy" value={`${Math.round(result.accuracy * 100)}%`} />
-        <Stat title="Mistakes" value={`${result.mistakes}`} />
+      {badge && <Text style={[label, { color: badge.color }]}>{badge.text}</Text>}
+      <View style={styles.resultRow}>
+        <ResultDelta title="Δ session best" delta={result.deltaSession} />
+        <ResultDelta title="Δ personal best" delta={result.deltaPersonal} />
       </View>
-      <Pressable
-        onPress={sessionDone ? onEnd : onNext}
-        accessibilityRole="button"
-        style={({ pressed }) => [styles.primary, pressed && { opacity: 0.85 }]}>
-        <Text style={styles.primaryText}>{sessionDone ? 'SEE RESULTS' : 'NEXT LAP'}</Text>
-      </Pressable>
-      {!sessionDone && (
-        <Pressable onPress={onEnd} accessibilityRole="button" style={styles.secondary}>
-          <Text style={styles.secondaryText}>End session</Text>
-        </Pressable>
-      )}
+      <Text style={styles.footer}>{footer}</Text>
+    </View>
+  );
+}
+
+function ResultDelta({ title, delta }: { title: string; delta: number | null }) {
+  return (
+    <View style={styles.stat}>
+      <Text style={[label, styles.statLabel]}>{title}</Text>
+      <Text style={[styles.statValue, tabular, { color: deltaColor(delta) }]}>
+        {delta === null ? '—' : formatDelta(delta)}
+      </Text>
     </View>
   );
 }
@@ -365,60 +431,67 @@ function Summary({
   session,
   track,
   mode,
-  personalBest,
+  personalBestMs,
   onRestart,
 }: {
   session: Session;
   track: Track;
   mode: Mode;
-  personalBest: number | null;
+  personalBestMs: number | null;
   onRestart: () => void;
 }) {
   const best = sessionBest(session);
   const bestIndex = sessionBestIndex(session);
   const complete = isComplete(session);
+  const mistakes = session.laps.reduce((sum, l) => sum + l.mistakes, 0);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={label}>
+      {complete && <FlagBanner flag="chequered" />}
+      <Text style={[label, styles.summaryMeta]}>
         {track.size}×{track.size} {track.name} · {MODE_NAMES[mode]}
       </Text>
       <Text style={styles.summaryTitle}>{complete ? 'Session complete' : 'Session ended'}</Text>
 
       <View style={styles.summaryStats}>
-        <Stat title="Laps" value={`${session.laps.length}`} color={colors.text} />
-        <Stat title="Total" value={formatLapTime(totalTime(session))} color={colors.text} />
-        <Stat title="Best lap" value={best === null ? '—' : formatLapTime(best)} color={colors.purple} />
+        <SummaryStat title="Laps" value={`${session.laps.length} / ${session.targetLaps}`} />
+        <SummaryStat title="Total" value={formatLapTime(totalTime(session))} />
+        <SummaryStat title="Best lap" value={best ? formatLapTime(best.ms) : '—'} color={colors.purple} />
+        <SummaryStat
+          title="Mistakes"
+          value={`${mistakes}`}
+          color={mistakes > 0 ? colors.yellow : colors.text}
+        />
       </View>
 
-      {session.laps.length > 0 && (
-        <View style={styles.lapList}>
-          {session.laps.map((lapMs, i) => {
-            const isBest = i === bestIndex;
-            const isPersonal = personalBest !== null && lapMs === personalBest;
-            const delta = best === null ? null : lapMs - best;
-            return (
-              <View key={i} style={[styles.lapRow, i > 0 && styles.lapRowBorder]}>
-                <Text style={[styles.lapIndex, tabular]}>L{i + 1}</Text>
-                <Text
-                  style={[
-                    styles.lapTime,
-                    tabular,
-                    isBest && { color: colors.purple },
-                    isPersonal && { color: colors.green },
-                  ]}>
-                  {formatLapTime(lapMs)}
-                </Text>
-                <Text style={[styles.lapDelta, tabular, isBest && { color: colors.purple }]}>
-                  {isBest ? 'Best' : delta === null ? '' : formatDelta(delta)}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
+      <View style={styles.lapList}>
+        {session.laps.map((l, i) => {
+          const isBest = i === bestIndex;
+          const isPersonal = personalBestMs !== null && l.ms === personalBestMs;
+          return (
+            <View key={i} style={[styles.lapRow, i > 0 && styles.lapRowBorder]}>
+              <Text style={[styles.lapIndex, tabular]}>L{i + 1}</Text>
+              <Text
+                style={[
+                  styles.lapTime,
+                  tabular,
+                  isBest && { color: colors.purple },
+                  isPersonal && { color: colors.green },
+                ]}>
+                {formatLapTime(l.ms)}
+              </Text>
+              <Text style={[styles.lapMistakes, tabular]}>{l.mistakes > 0 ? `${l.mistakes}×` : ''}</Text>
+              <Text style={[styles.lapDelta, tabular, isBest && { color: colors.purple }]}>
+                {isBest ? 'Best' : best ? formatDelta(l.ms - best.ms) : ''}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
 
-      <Text style={styles.legend}>Purple: fastest lap of this session. Green: personal best.</Text>
+      <Text style={styles.legend}>
+        Purple: fastest lap of this session. Green: personal best. Yellow: wrong taps in the lap.
+      </Text>
 
       <Pressable
         onPress={onRestart}
@@ -433,6 +506,23 @@ function Summary({
   );
 }
 
+function SummaryStat({
+  title,
+  value,
+  color = colors.text,
+}: {
+  title: string;
+  value: string;
+  color?: string;
+}) {
+  return (
+    <View style={styles.summaryStat}>
+      <Text style={[label, styles.statLabel]}>{title}</Text>
+      <Text style={[styles.statValue, tabular, { color }]}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.carbon },
   content: { flexGrow: 1, padding: 24, paddingTop: 16, maxWidth: 480, width: '100%', alignSelf: 'center' },
@@ -440,19 +530,20 @@ const styles = StyleSheet.create({
   exit: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.muted },
   timer: {
     fontFamily: fonts.heading,
-    fontSize: 76,
-    lineHeight: 84,
+    fontSize: 72,
+    lineHeight: 80,
     color: colors.text,
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 4,
   },
-  stats: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 6 },
-  stat: { alignItems: 'center', gap: 2, minWidth: 90 },
+  stats: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
+  stat: { alignItems: 'center', gap: 1, minWidth: 96 },
   statLabel: { fontSize: 11, letterSpacing: 1.1 },
-  statValue: { fontFamily: fonts.heading, fontSize: 24, color: colors.muted },
-  next: { flexDirection: 'row', justifyContent: 'center', alignItems: 'baseline', gap: 12, marginTop: 12 },
-  nextValue: { fontFamily: fonts.heading, fontSize: 56, lineHeight: 60, color: colors.red, minWidth: 60 },
-  board: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 12, alignSelf: 'center' },
+  statValue: { fontFamily: fonts.heading, fontSize: 26, color: colors.muted },
+  statCaption: { fontFamily: fonts.body, fontSize: 11, color: colors.muted },
+  next: { flexDirection: 'row', justifyContent: 'center', alignItems: 'baseline', gap: 12, marginTop: 6 },
+  nextValue: { fontFamily: fonts.heading, fontSize: 52, lineHeight: 56, color: colors.red, minWidth: 60 },
+  board: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10, alignSelf: 'center' },
   tile: {
     borderRadius: 12,
     backgroundColor: colors.surface2,
@@ -462,7 +553,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tileCleared: { backgroundColor: colors.carbon },
-  tileWrong: { borderColor: colors.red, borderWidth: 2, backgroundColor: '#3A1A20' },
+  tileWrong: { borderColor: colors.yellow, borderWidth: 2, backgroundColor: '#3A3418' },
   tileText: { fontFamily: fonts.heading, color: colors.text },
   tileTextCleared: { color: colors.dim },
   countdown: { width: '100%', alignItems: 'center', justifyContent: 'center', gap: 24 },
@@ -477,7 +568,13 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   lightOn: { backgroundColor: colors.red, borderColor: colors.red },
-  progressTrack: { marginTop: 16, height: 6, borderRadius: 3, backgroundColor: colors.line, overflow: 'hidden' },
+  progressTrack: {
+    marginTop: 14,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.line,
+    overflow: 'hidden',
+  },
   progressFill: { height: 6, borderRadius: 3, backgroundColor: colors.red },
   progressRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   small: { fontFamily: fonts.body, fontSize: 13, color: colors.muted },
@@ -491,12 +588,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  badge: { marginBottom: 6 },
   resultTime: { fontFamily: fonts.heading, fontSize: 56, lineHeight: 62, color: colors.text },
-  resultGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', rowGap: 12, columnGap: 24 },
+  resultRow: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 8 },
+  footer: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.muted, marginTop: 12 },
   primary: {
     alignSelf: 'stretch',
-    marginTop: 18,
+    marginTop: 20,
     height: 52,
     borderRadius: 12,
     backgroundColor: colors.red,
@@ -515,8 +612,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   secondaryText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.text },
+  summaryMeta: { marginTop: 16 },
   summaryTitle: { fontFamily: fonts.heading, fontSize: 40, lineHeight: 44, color: colors.text, marginTop: 6 },
-  summaryStats: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
+  summaryStats: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 20, rowGap: 14 },
+  summaryStat: { width: '50%', gap: 2 },
   lapList: {
     marginTop: 20,
     backgroundColor: colors.surface,
@@ -529,6 +628,13 @@ const styles = StyleSheet.create({
   lapRowBorder: { borderTopWidth: 1, borderTopColor: colors.line },
   lapIndex: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.muted, width: 44 },
   lapTime: { fontFamily: fonts.heading, fontSize: 24, color: colors.text, flex: 1 },
-  lapDelta: { fontFamily: fonts.heading, fontSize: 20, color: colors.muted },
+  lapMistakes: {
+    fontFamily: fonts.heading,
+    fontSize: 18,
+    color: colors.yellow,
+    width: 40,
+    textAlign: 'right',
+  },
+  lapDelta: { fontFamily: fonts.heading, fontSize: 20, color: colors.muted, width: 72, textAlign: 'right' },
   legend: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 12 },
 });

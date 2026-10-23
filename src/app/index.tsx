@@ -1,10 +1,10 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Wordmark } from '@/components/wordmark';
-import { formatLapTime, LAP_OPTIONS, TRACKS, type Mode, type TrackId } from '@/game';
+import { formatLapTime, MAX_LAPS, MIN_LAPS, parseLapCount, TRACKS, type Mode, type TrackId } from '@/game';
 import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
 
@@ -16,7 +16,8 @@ const MODE_LABELS: Record<Mode, string> = {
 export default function Home() {
   const [track, setTrack] = useState<TrackId>('circuit');
   const [mode, setMode] = useState<Mode>('ascending');
-  const [laps, setLaps] = useState<number | null>(5);
+  const [lapsText, setLapsText] = useState('5');
+  const laps = parseLapCount(lapsText);
   const bestLaps = useRecords((state) => state.bestLaps);
 
   return (
@@ -32,7 +33,7 @@ export default function Home() {
         <View style={styles.tracks}>
           {TRACKS.map((t) => {
             const selected = t.id === track;
-            const best = bestLaps[recordKey(t.id, mode)];
+            const best = bestLaps[recordKey(t.id, mode)]?.ms;
             return (
               <Pressable
                 key={t.id}
@@ -73,31 +74,37 @@ export default function Home() {
         </View>
 
         <View style={styles.section}>
-          <Text style={label}>Laps</Text>
+          <Text style={label} nativeID="laps-label">
+            Laps
+          </Text>
         </View>
-        <View style={styles.modes} accessibilityRole="radiogroup">
-          {LAP_OPTIONS.map((option) => {
-            const selected = option === laps;
-            return (
-              <Pressable
-                key={option ?? 'open'}
-                onPress={() => setLaps(option)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                accessibilityLabel={option === null ? 'Open practice, no lap limit' : `${option} laps`}
-                style={[styles.modeButton, selected && styles.modeButtonSelected]}>
-                <Text style={[styles.lapText, selected && styles.modeTextSelected]}>{option ?? '∞'}</Text>
-              </Pressable>
-            );
-          })}
+        <View style={styles.lapsRow}>
+          <TextInput
+            value={lapsText}
+            onChangeText={(text) => setLapsText(text.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+            inputMode="numeric"
+            maxLength={2}
+            selectTextOnFocus
+            accessibilityLabel="Number of laps"
+            accessibilityLabelledBy="laps-label"
+            style={[styles.lapsInput, laps === null && styles.lapsInputInvalid]}
+          />
+          <Text style={[styles.lapsHint, laps === null && styles.lapsHintInvalid]}>
+            {laps === null ? `Enter ${MIN_LAPS}–${MAX_LAPS} laps` : laps === 1 ? '1 lap' : `${laps} laps`}
+          </Text>
         </View>
 
         <Pressable
           accessibilityRole="button"
-          onPress={() =>
-            router.push({ pathname: '/race', params: { track, mode, laps: laps === null ? 'open' : String(laps) } })
-          }
-          style={({ pressed }) => [styles.start, pressed && styles.startPressed]}>
+          accessibilityState={{ disabled: laps === null }}
+          disabled={laps === null}
+          onPress={() => router.push({ pathname: '/race', params: { track, mode, laps: String(laps) } })}
+          style={({ pressed }) => [
+            styles.start,
+            laps === null && styles.startDisabled,
+            pressed && styles.startPressed,
+          ]}>
           <Text style={styles.startText}>START</Text>
         </Pressable>
 
@@ -142,7 +149,24 @@ const styles = StyleSheet.create({
   modeButtonSelected: { backgroundColor: colors.surface2, borderColor: colors.muted },
   modeText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.muted },
   modeTextSelected: { color: colors.text },
-  lapText: { fontFamily: fonts.heading, fontSize: 22, color: colors.muted },
+  lapsRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 12 },
+  lapsInput: {
+    width: 88,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.muted,
+    backgroundColor: colors.surface2,
+    color: colors.text,
+    fontFamily: fonts.heading,
+    fontSize: 32,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
+  lapsInputInvalid: { borderColor: colors.red },
+  lapsHint: { fontFamily: fonts.body, fontSize: 14, color: colors.muted },
+  lapsHintInvalid: { color: colors.text },
+  startDisabled: { opacity: 0.4 },
   start: {
     marginTop: 32,
     height: 56,

@@ -12,6 +12,8 @@ export const colors = {
   dim: '#7A8599',
   purple: '#B57BFF',
   green: '#3DDC84',
+  /** Yellow flag after a wrong tap. */
+  yellow: '#FFD12E',
   white: '#FFFFFF',
 } as const;
 

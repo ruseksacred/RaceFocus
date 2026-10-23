@@ -97,3 +97,21 @@ describe('lap', () => {
     expect(elapsedMs(done, 5000)).toBe(900);
   });
 });
+
+describe('splits', () => {
+  it('records the running time at each correct tap, penalties included', () => {
+    const taps: Tap[] = [
+      { value: 1, at: 100 },
+      { value: 5, at: 150 },
+      { value: 2, at: 300 },
+    ];
+    const lap = replayLap(config, taps);
+    expect(lap.splits).toEqual([100, 300 + WRONG_TAP_PENALTY_MS]);
+  });
+
+  it('has one split per number and ends at the lap time', () => {
+    const lap = replayLap(config, perfectTaps(9));
+    expect(lap.splits).toHaveLength(9);
+    expect(lap.splits.at(-1)).toBe(lapTimeMs(lap));
+  });
+});

@@ -27,6 +27,12 @@ export interface LapState {
   /** Time of the last correct tap, set once the lap is complete. */
   finishedAt: number | null;
   taps: Tap[];
+  /**
+   * Split time at each correct tap, penalties included.
+   * splits[i] is the running lap time when target i was cleared.
+   * Used for the live delta against a reference lap.
+   */
+  splits: number[];
 }
 
 export function createLap(config: LapConfig): LapState {
@@ -38,6 +44,7 @@ export function createLap(config: LapConfig): LapState {
     mistakes: 0,
     finishedAt: null,
     taps: [],
+    splits: [],
   };
 }
 
@@ -73,8 +80,9 @@ export function applyTap(state: LapState, tap: Tap): { state: LapState; result: 
 
   const nextIndex = state.nextIndex + 1;
   const done = nextIndex === total;
+  const splits = [...state.splits, tap.at + penaltyMs(state)];
   return {
-    state: { ...state, taps, nextIndex, finishedAt: done ? tap.at : null },
+    state: { ...state, taps, splits, nextIndex, finishedAt: done ? tap.at : null },
     result: done ? 'finished' : 'correct',
   };
 }

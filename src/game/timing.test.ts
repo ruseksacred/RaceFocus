@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { deltaKind, deltaMs, formatDelta, formatLapTime } from './timing';
+import { deltaKind, deltaMs, formatDelta, formatLapTime, liveDeltaMs } from './timing';
 
 describe('formatLapTime', () => {
   it('formats minutes, seconds and hundredths', () => {
@@ -35,5 +35,36 @@ describe('delta', () => {
 
   it('is equal when the same', () => {
     expect(deltaKind(0)).toBe('equal');
+  });
+});
+
+describe('liveDeltaMs', () => {
+  const reference = [1000, 2000, 3000];
+
+  it('is null without a reference', () => {
+    expect(liveDeltaMs([900], null, 950)).toBeNull();
+    expect(liveDeltaMs([900], [], 950)).toBeNull();
+  });
+
+  it('is null before the first split while still ahead of the reference', () => {
+    expect(liveDeltaMs([], reference, 500)).toBeNull();
+  });
+
+  it('grows before the first split once the reference time has passed', () => {
+    expect(liveDeltaMs([], reference, 1300)).toBe(300);
+  });
+
+  it('compares splits at the same number', () => {
+    expect(liveDeltaMs([800, 1700], reference, 1750)).toBe(-300);
+    expect(liveDeltaMs([1200, 2400], reference, 2500)).toBe(400);
+  });
+
+  it('keeps growing between taps once the next reference split has passed', () => {
+    // Ahead by 0.3 s at number 2, but the clock is already 0.5 s past reference number 3.
+    expect(liveDeltaMs([800, 1700], reference, 3500)).toBe(500);
+  });
+
+  it('matches the lap delta at the finish', () => {
+    expect(liveDeltaMs([900, 1900, 2800], reference, 2800)).toBe(-200);
   });
 });
