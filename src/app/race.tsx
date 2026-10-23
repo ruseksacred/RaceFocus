@@ -36,10 +36,11 @@ import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
 
 /**
- * countdown → running → lapBreak → running … → finish → summary.
- * Lights only before the first lap; later laps start on their own.
+ * countdown → running → finish → summary.
+ * Lights only before the first lap. Each next lap starts the instant the previous
+ * one ends, with no pause, like a real race.
  */
-type Phase = 'countdown' | 'running' | 'lapBreak' | 'finish' | 'summary';
+type Phase = 'countdown' | 'running' | 'finish' | 'summary';
 
 /** Reference laps for the live delta, fixed when a lap starts. */
 interface References {
@@ -58,7 +59,6 @@ interface LapResult {
 
 const COUNTDOWN_FROM = 3;
 const COUNTDOWN_STEP_MS = 700;
-const LAP_BREAK_MS = 1800;
 const FINISH_MS = 2600;
 const YELLOW_FLAG_MS = 2000;
 const DEFAULT_LAPS = 5;
@@ -97,25 +97,28 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
   const sessionRef = useRef(session);
   const startRef = useRef(0);
 
-  const startLap = useCallback(() => {
-    const current = sessionRef.current;
-    const best = useRecords.getState().bestLaps[key];
-    setRefs({ session: sessionBest(current)?.splits ?? null, personal: best?.splits ?? null });
-    const fresh = newLap(track, mode);
-    lapRef.current = fresh;
-    setLap(fresh);
-    setResult(null);
-    startRef.current = performance.now();
-    setNow(0);
-    setPhase('running');
-  }, [key, track, mode]);
+  /** Starts a lap whose clock began at `startTime` (a performance.now() value). */
+  const startLap = useCallback(
+    (startTime: number) => {
+      const current = sessionRef.current;
+      const best = useRecords.getState().bestLaps[key];
+      setRefs({ session: sessionBest(current)?.splits ?? null, personal: best?.splits ?? null });
+      const fresh = newLap(track, mode);
+      lapRef.current = fresh;
+      setLap(fresh);
+      startRef.current = startTime;
+      setNow(Math.max(0, performance.now() - startTime));
+      setPhase('running');
+    },
+    [key, track, mode],
+  );
 
   // Lights before the first lap.
   useEffect(() => {
     if (phase !== 'countdown') return;
     const id = setTimeout(() => {
       if (countdown > 1) setCountdown(countdown - 1);
-      else startLap();
+      else startLap(performance.now());
     }, COUNTDOWN_STEP_MS);
     return () => clearTimeout(id);
   }, [phase, countdown, startLap]);
@@ -126,13 +129,6 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
     const id = setInterval(() => setNow(performance.now() - startRef.current), 31);
     return () => clearInterval(id);
   }, [phase]);
-
-  // Short break between laps, then the next lap starts by itself.
-  useEffect(() => {
-    if (phase !== 'lapBreak') return;
-    const id = setTimeout(startLap, LAP_BREAK_MS);
-    return () => clearTimeout(id);
-  }, [phase, startLap]);
 
   // Chequered flag, then the results.
   useEffect(() => {
@@ -178,7 +174,6 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
         });
         sessionRef.current = updated;
         setSession(updated);
-        setNow(at);
         setResult({
           lapMs,
           deltaSession: deltaMs(lapMs, previousBest?.ms),
@@ -187,10 +182,16 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
           sessionBest: previousBest === null || lapMs < previousBest.ms,
           firstLap: previousBest === null,
         });
-        setPhase(isComplete(updated) ? 'finish' : 'lapBreak');
+        if (isComplete(updated)) {
+          setNow(at);
+          setPhase('finish');
+        } else {
+          // No pause: the next lap's clock starts at the exact moment this one ended.
+          startLap(startRef.current + at);
+        }
       }
     },
-    [phase, key, submitLap],
+    [phase, key, submitLap, startLap],
   );
 
   const restart = () => {
@@ -199,6 +200,7 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
     setSession(fresh);
     setResult(null);
     setYellowAt(null);
+    setWrongValue(null);
     setCountdown(COUNTDOWN_FROM);
     setPhase('countdown');
   };
@@ -227,9 +229,8 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
     );
   }
 
-  const betweenLaps = phase === 'lapBreak' || phase === 'finish';
-  // After a finish the session already holds the lap just driven.
-  const lapNumber = betweenLaps ? session.laps.length : currentLapNumber(session);
+  // At the finish the session already holds the lap just driven.
+  const lapNumber = phase === 'finish' ? session.laps.length : currentLapNumber(session);
   const time = phase === 'countdown' ? 0 : elapsedMs(lap, now);
   const total = lap.targets.length;
   const target = nextTarget(lap);
@@ -275,20 +276,11 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
           </View>
         </View>
 
-        {betweenLaps && result ? (
-          <LapCard
-            result={result}
-            lapNumber={lapNumber}
-            footer={
-              phase === 'finish'
-                ? 'Session complete'
-                : isFinalLap(session)
-                  ? 'Final lap starting…'
-                  : `Lap ${lapNumber + 1} starting…`
-            }
-          />
+        {phase === 'finish' && result ? (
+          <LapCard result={result} lapNumber={lapNumber} footer="Session complete" />
         ) : (
           <>
+            <LastLap result={phase === 'running' ? result : null} lapNumber={session.laps.length} />
             <View style={styles.next}>
               <Text style={label}>Next</Text>
               <Text style={[styles.nextValue, tabular]}>{phase === 'countdown' ? '–' : target}</Text>
@@ -339,11 +331,6 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
               <Text style={[styles.small, tabular]}>
                 {lap.nextIndex} / {total}
               </Text>
-              {session.laps.length > 0 && (
-                <Text style={[styles.small, tabular]}>
-                  L{session.laps.length} {formatLapTime(session.laps.at(-1)!.ms)}
-                </Text>
-              )}
             </View>
           </>
         )}
@@ -390,6 +377,25 @@ function Lights({ lit }: { lit: number }) {
       {Array.from({ length: COUNTDOWN_FROM }, (_, i) => (
         <View key={i} style={[styles.light, i < lit && styles.lightOn]} />
       ))}
+    </View>
+  );
+}
+
+/** Result of the previous lap, shown while the next one is already running. Keeps its height when empty. */
+function LastLap({ result, lapNumber }: { result: LapResult | null; lapNumber: number }) {
+  if (result === null) return <View style={styles.lastLap} />;
+  const timeColor = result.personalBest ? colors.green : result.sessionBest ? colors.purple : colors.text;
+  const tag = result.personalBest ? 'PB' : result.sessionBest && !result.firstLap ? 'Session best' : null;
+  return (
+    <View style={[styles.lastLap, styles.lastLapFilled]} accessibilityLiveRegion="polite">
+      <Text style={[label, styles.statLabel]}>L{lapNumber}</Text>
+      <Text style={[styles.lastLapTime, tabular, { color: timeColor }]}>{formatLapTime(result.lapMs)}</Text>
+      {result.deltaSession !== null && (
+        <Text style={[styles.lastLapDelta, tabular, { color: deltaColor(result.deltaSession) }]}>
+          {formatDelta(result.deltaSession)}
+        </Text>
+      )}
+      {tag && <Text style={[label, styles.statLabel, { color: timeColor }]}>{tag}</Text>}
     </View>
   );
 }
@@ -588,6 +594,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  lastLap: {
+    height: 34,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  lastLapFilled: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  lastLapTime: { fontFamily: fonts.heading, fontSize: 22 },
+  lastLapDelta: { fontFamily: fonts.heading, fontSize: 20 },
   resultTime: { fontFamily: fonts.heading, fontSize: 56, lineHeight: 62, color: colors.text },
   resultRow: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 8 },
   footer: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.muted, marginTop: 12 },

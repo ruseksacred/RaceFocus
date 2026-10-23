@@ -13,7 +13,7 @@ UI prototype (3 screens + logo concepts): https://claude.ai/artifact/TwpgGvPBKNc
 - A wrong tap adds a time penalty, so speed does not beat accuracy.
 - Every board is generated from a **seed**. Same seed = same layout for every player in a given race.
 - Timing: lap time, best lap per track, delta to own best lap (green = improvement, purple = fastest of the race).
-- Solo session: the player types the lap count (1–99). Lights before lap 1 only; later laps start automatically after a short break. Live delta to the session best and the personal best, compared split by split. Flags: yellow after a wrong tap, white before the final lap, chequered at the finish, then a session summary.
+- Solo session: the player types the lap count (1–99). Lights before lap 1 only; each next lap starts the instant the previous one ends, with no pause (its clock starts at the final tap), like a real race. The previous lap result shows in a strip above the board. Live delta to the session best and the personal best, compared split by split. Flags: yellow after a wrong tap, white before the final lap, chequered at the finish, then a session summary.
 
 ## Features and decisions
 
