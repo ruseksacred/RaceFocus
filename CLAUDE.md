@@ -59,7 +59,7 @@ Fonts: Barlow Condensed (headings, numbers, timers) and Inter (body). Use tabula
 
 Screens in the prototype: Home (daily race card with countdown, tracks with best times, solo and private room, tab bar), Race (lap counter, large timer, delta to best, gap to P1, next number, 5×5 grid, progress), Results (standings with best lap and gap, rating and accuracy).
 
-Logo: two concepts exist (A: double chevron "fast forward"; B: RF monogram), both with a checkered strip. Not chosen yet. The main wordmark is RACEFOCUS, slanted forward.
+Logo: concept A is chosen: double chevron "fast forward" (white + red) with a checkered strip, on the carbon background. Concept B (RF monogram) was dropped. The wordmark is RACEFOCUS, slanted forward, with FOCUS in red. App icons live in `assets/images/`.
 
 ## Roadmap (build in this order)
 
@@ -80,7 +80,6 @@ Logo: two concepts exist (A: double chevron "fast forward"; B: RF monogram), bot
 
 - Framework confirmation (React Native + Expo proposed) and backend choice (Supabase vs Firebase).
 - Daily race: one attempt or several per day.
-- Logo concept A or B.
 - Premium contents and prices.
 
 ## Working style
