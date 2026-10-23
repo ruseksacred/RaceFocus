@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Wordmark } from '@/components/wordmark';
-import { formatLapTime, TRACKS, type Mode, type TrackId } from '@/game';
+import { formatLapTime, LAP_OPTIONS, TRACKS, type Mode, type TrackId } from '@/game';
 import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
 
@@ -16,6 +16,7 @@ const MODE_LABELS: Record<Mode, string> = {
 export default function Home() {
   const [track, setTrack] = useState<TrackId>('circuit');
   const [mode, setMode] = useState<Mode>('ascending');
+  const [laps, setLaps] = useState<number | null>(5);
   const bestLaps = useRecords((state) => state.bestLaps);
 
   return (
@@ -71,9 +72,31 @@ export default function Home() {
           })}
         </View>
 
+        <View style={styles.section}>
+          <Text style={label}>Laps</Text>
+        </View>
+        <View style={styles.modes} accessibilityRole="radiogroup">
+          {LAP_OPTIONS.map((option) => {
+            const selected = option === laps;
+            return (
+              <Pressable
+                key={option ?? 'open'}
+                onPress={() => setLaps(option)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={option === null ? 'Open practice, no lap limit' : `${option} laps`}
+                style={[styles.modeButton, selected && styles.modeButtonSelected]}>
+                <Text style={[styles.lapText, selected && styles.modeTextSelected]}>{option ?? '∞'}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push({ pathname: '/race', params: { track, mode } })}
+          onPress={() =>
+            router.push({ pathname: '/race', params: { track, mode, laps: laps === null ? 'open' : String(laps) } })
+          }
           style={({ pressed }) => [styles.start, pressed && styles.startPressed]}>
           <Text style={styles.startText}>START</Text>
         </Pressable>
@@ -119,8 +142,9 @@ const styles = StyleSheet.create({
   modeButtonSelected: { backgroundColor: colors.surface2, borderColor: colors.muted },
   modeText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.muted },
   modeTextSelected: { color: colors.text },
+  lapText: { fontFamily: fonts.heading, fontSize: 22, color: colors.muted },
   start: {
-    marginTop: 36,
+    marginTop: 32,
     height: 56,
     borderRadius: 12,
     backgroundColor: colors.red,
