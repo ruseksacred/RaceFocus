@@ -16,3 +16,8 @@ export const TRACKS: readonly Track[] = [
 export function getTrack(id: string): Track | undefined {
   return TRACKS.find((track) => track.id === id);
 }
+
+/** "5×5 Circuit" */
+export function trackLabel(track: Track): string {
+  return `${track.size}×${track.size} ${track.name}`;
+}

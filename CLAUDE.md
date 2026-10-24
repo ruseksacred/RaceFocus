@@ -59,6 +59,8 @@ Style inspired by F1.com colors (palette only). Do not use the F1 logo, its type
 
 Fonts: Barlow Condensed (headings, numbers, timers) and Inter (body). Use tabular numbers for all timers. Keep text contrast at least 4.5:1.
 
+App navigation: bottom tab bar with icons (Home, Practice, Stats, Profile). Home has Quick start with the last setup, tracks with best laps, recent sessions and a Daily race teaser. Practice is the solo setup (track list, mode, lap count typed or −/+, target race time). Stats and Profile are placeholders for now; the profile shows placeholder initials until accounts exist. Data stays in memory until local storage is added.
+
 Screens in the prototype: Home (daily race card with countdown, tracks with best times, solo and private room, tab bar), Race (lap counter, large timer, delta to best, gap to P1, next number, 5×5 grid, progress), Results (standings with best lap and gap, rating and accuracy).
 
 Logo: concept A is chosen: double chevron "fast forward" (white + red) with a checkered strip, on the carbon background. Concept B (RF monogram) was dropped. The wordmark is RACEFOCUS, slanted forward, with FOCUS in red. App icons live in `assets/images/`.

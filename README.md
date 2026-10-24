@@ -31,6 +31,8 @@ npm run lint
 ## Layout
 
 - `src/game/` – game logic in plain TypeScript, no React: board from seed, lap state, penalties, timing. Tested.
-- `src/app/` – screens (Expo Router): `index.tsx` menu, `race.tsx` lap.
-- `src/store/` – app state (Zustand).
+- `src/app/(tabs)/` – tab screens (Expo Router): Home, Practice, Stats, Profile, with a custom icon tab bar.
+- `src/app/race.tsx` – the race screen (lights, laps, flags, summary).
+- `src/components/` – shared UI: tab bar and icons, flags, wordmark, cards.
+- `src/store/` – app state (Zustand): records, practice setup and recent sessions, in memory for now.
 - `src/theme.ts` – colors and fonts from the design tokens.

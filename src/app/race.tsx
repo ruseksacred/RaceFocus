@@ -32,6 +32,8 @@ import {
   type Session,
   type Track,
 } from '@/game';
+import { MODE_SHORT } from '@/labels';
+import { usePractice } from '@/store/practice';
 import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
 
@@ -64,7 +66,6 @@ const GREEN_MS = 500;
 const FINISH_MS = 2600;
 const YELLOW_FLAG_MS = 2000;
 const DEFAULT_LAPS = 5;
-const MODE_NAMES: Record<Mode, string> = { ascending: '1 → N', descending: 'Countdown' };
 
 /**
  * react-native-web waits 50 ms before firing onPressIn, so quick taps are lost.
@@ -97,6 +98,10 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
 
   const lapRef = useRef(lap);
   const sessionRef = useRef(session);
+  /** Set when any lap of this session was a personal best. */
+  const personalBestRef = useRef(false);
+  const loggedRef = useRef<Session | null>(null);
+  const addSession = usePractice((state) => state.addSession);
   const startRef = useRef(0);
 
   /** Starts a lap whose clock began at `startTime` (a performance.now() value). */
@@ -146,6 +151,25 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
     return () => clearTimeout(id);
   }, [phase]);
 
+  // Log the session for Home and Stats once it reaches the summary.
+  useEffect(() => {
+    if (phase !== 'summary' || session.laps.length === 0 || loggedRef.current === session) return;
+    loggedRef.current = session;
+    const best = sessionBest(session)!;
+    addSession({
+      id: `${Date.now()}`,
+      track: track.id,
+      mode,
+      lapsDriven: session.laps.length,
+      targetLaps: session.targetLaps,
+      bestMs: best.ms,
+      totalMs: totalTime(session),
+      mistakes: session.laps.reduce((sum, l) => sum + l.mistakes, 0),
+      personalBest: personalBestRef.current,
+      finishedAt: Date.now(),
+    });
+  }, [phase, session, track.id, mode, addSession]);
+
   useEffect(() => {
     if (wrongValue === null) return;
     const id = setTimeout(() => setWrongValue(null), 250);
@@ -176,6 +200,7 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
         const previousBest = sessionBest(previous);
         const previousPersonal = useRecords.getState().bestLaps[key] ?? null;
         const isPersonalBest = submitLap(key, { ms: lapMs, splits: outcome.state.splits });
+        if (isPersonalBest) personalBestRef.current = true;
         const updated = addLap(previous, {
           ms: lapMs,
           splits: outcome.state.splits,
@@ -206,6 +231,7 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
   const restart = () => {
     const fresh = createSession(targetLaps);
     sessionRef.current = fresh;
+    personalBestRef.current = false;
     setSession(fresh);
     setResult(null);
     setYellowAt(null);
@@ -467,7 +493,7 @@ function Summary({
     <ScrollView contentContainerStyle={styles.content}>
       {complete && <FlagBanner flag="chequered" />}
       <Text style={[label, styles.summaryMeta]}>
-        {track.size}×{track.size} {track.name} · {MODE_NAMES[mode]}
+        {track.size}×{track.size} {track.name} · {MODE_SHORT[mode]}
       </Text>
       <Text style={styles.summaryTitle}>{complete ? 'Session complete' : 'Session ended'}</Text>
 
