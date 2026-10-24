@@ -1,5 +1,11 @@
 import { getApps, initializeApp, type FirebaseApp } from 'firebase/app';
-import { connectAuthEmulator, inMemoryPersistence, initializeAuth, signInAnonymously, type Auth } from 'firebase/auth';
+import {
+  connectAuthEmulator,
+  inMemoryPersistence,
+  initializeAuth,
+  signInAnonymously,
+  type Auth,
+} from 'firebase/auth';
 import { connectDatabaseEmulator, getDatabase, onValue, ref, type Database } from 'firebase/database';
 
 /**

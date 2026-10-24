@@ -1,6 +1,6 @@
 import Svg, { Circle, Path } from 'react-native-svg';
 
-export type IconName = 'home' | 'practice' | 'stats' | 'profile';
+export type IconName = 'home' | 'practice' | 'race' | 'stats' | 'profile';
 
 /** Stroke icons for the tab bar, drawn on a 24 × 24 grid. */
 export function Icon({ name, color, size = 24 }: { name: IconName; color: string; size?: number }) {
@@ -20,6 +20,12 @@ export function Icon({ name, color, size = 24 }: { name: IconName; color: string
         <>
           <Circle cx={12} cy={13.5} r={7.5} {...stroke} />
           <Path d="M12 13.5V9.5M9.5 2.5h5M12 2.5v3.5M18.5 6.5l1.5-1.5" {...stroke} />
+        </>
+      )}
+      {name === 'race' && (
+        <>
+          <Path d="M5 21.5V3.5M5 4h14v9H5" {...stroke} />
+          <Path d="M9.7 4v9M14.3 4v9M5 8.5h14" {...stroke} />
         </>
       )}
       {name === 'stats' && <Path d="M3 20.5h18M6 20.5v-7M12 20.5V5M18 20.5v-10" {...stroke} />}

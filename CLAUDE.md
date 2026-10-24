@@ -24,6 +24,8 @@ UI prototype (3 screens + logo concepts): https://claude.ai/artifact/TwpgGvPBKNc
 5. **Leaderboards** per track and mode (global, friends, weekly/season).
 6. **Rating (later, once there are enough players):** iRacing-style. An Elo-based rating computed after a race closes, a separate accuracy rating (like Safety Rating), and license classes (Rookie → D → C → B → A).
 
+**Private rooms (built, first version):** a separate Race tab. Host sets track, mode, laps, wrong-tap penalty (0.5/1/2 s) and max drivers (2–12); others join with a 5-letter code and a nick (anonymous sign-in, no accounts yet). The host starts; everyone gets per-lap seeds from the room seed and counts down to the same server time (Firebase server clock offset). Each correct tap reports a crossing (race time incl. penalties); standings and F1-style gaps (to P1 and to the car ahead, at the same number) are computed on every client from those crossings (`src/game/standings.ts`). Results: order, gap to winner, best laps (fastest of the race purple), mistakes, accuracy; the host can start a new race. Known gap: times are still reported by the client; before rooms feed rankings, validate tap sequences on the server (Cloud Functions needs the paid Blaze plan).
+
 Shared race engine to build once: lobby, server-time start, shared seed, live standings, result storage. Rooms, daily and championships are only different ways to create a race.
 
 ## Rules that must hold
@@ -35,7 +37,7 @@ Shared race engine to build once: lobby, server-time start, shared seed, live st
 ## Tech stack (proposed)
 
 - React Native with Expo, TypeScript. Expo Router for navigation, Zustand for state, expo-notifications for push.
-- Backend: Supabase (auth, Postgres, Realtime, scheduled jobs for daily races) or Firebase. Decide before building accounts.
+- Backend: **Firebase** (chosen): anonymous auth for now, Realtime Database for rooms. Config via `EXPO_PUBLIC_FIREBASE_*` in `.env`; local emulators via `npm run emulators`. Rules live in `database.rules.json`.
 - Builds and store submission through EAS (no Mac needed for iOS builds).
 - Error reporting: Sentry.
 - Keep game logic (board generation from seed, order check, timing, penalties, delta) in plain TypeScript modules with unit tests, separate from UI.
@@ -82,7 +84,6 @@ Logo: concept A is chosen: double chevron "fast forward" (white + red) with a ch
 
 ## Open decisions
 
-- Framework confirmation (React Native + Expo proposed) and backend choice (Supabase vs Firebase).
 - Daily race: one attempt or several per day.
 - Premium contents and prices.
 

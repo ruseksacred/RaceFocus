@@ -1,13 +1,4 @@
-import {
-  get,
-  onDisconnect,
-  onValue,
-  ref,
-  remove,
-  runTransaction,
-  set,
-  update,
-} from 'firebase/database';
+import { get, onDisconnect, onValue, ref, remove, runTransaction, set, update } from 'firebase/database';
 
 import { generateRoomCode, MIN_PLAYERS, randomSeed, type DriverProgress, type RoomRules } from '@/game';
 

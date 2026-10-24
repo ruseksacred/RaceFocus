@@ -126,6 +126,16 @@ export default function Home() {
         )}
       </Card>
 
+      <Link href="/rooms" asChild>
+        <Pressable accessibilityRole="button" style={styles.roomCard}>
+          <View style={styles.roomText}>
+            <Text style={styles.roomTitle}>Private room</Text>
+            <Text style={styles.roomMeta}>Race friends live with a room code</Text>
+          </View>
+          <Text style={styles.roomGo}>›</Text>
+        </Pressable>
+      </Link>
+
       <View style={styles.soon}>
         <Text style={styles.soonText}>
           <Text style={styles.soonStrong}>Daily race</Text> · same board for everyone
@@ -191,6 +201,22 @@ const styles = StyleSheet.create({
   rowTitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.text },
   rowMeta: { fontFamily: fonts.body, fontSize: 12, color: colors.muted },
   rowTime: { fontFamily: fonts.heading, fontSize: 20 },
+  roomCard: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  roomText: { flex: 1 },
+  roomTitle: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.text },
+  roomMeta: { fontFamily: fonts.body, fontSize: 12, color: colors.muted },
+  roomGo: { fontFamily: fonts.heading, fontSize: 28, color: colors.red },
   soon: {
     marginTop: 14,
     flexDirection: 'row',

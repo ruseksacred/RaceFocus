@@ -8,6 +8,7 @@ import { Icon, type IconName } from './icons';
 const TABS: Record<string, { label: string; icon: IconName }> = {
   index: { label: 'Home', icon: 'home' },
   practice: { label: 'Practice', icon: 'practice' },
+  rooms: { label: 'Race', icon: 'race' },
   stats: { label: 'Stats', icon: 'stats' },
   profile: { label: 'Profile', icon: 'profile' },
 };
