@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Board, StartLights } from '@/components/board';
 import { FlagBanner, type FlagKind } from '@/components/flag';
 import {
   addLap,
@@ -15,7 +16,6 @@ import {
   formatDelta,
   formatLapTime,
   getTrack,
-  isCleared,
   isComplete,
   isFinalLap,
   lapTimeMs,
@@ -66,12 +66,6 @@ const GREEN_MS = 500;
 const FINISH_MS = 2600;
 const YELLOW_FLAG_MS = 2000;
 const DEFAULT_LAPS = 5;
-
-/**
- * react-native-web waits 50 ms before firing onPressIn, so quick taps are lost.
- * Native fires it right away. The prop is web-only and missing from RN types.
- */
-const instantPressIn = (Platform.OS === 'web' ? { delayPressIn: 0 } : {}) as object;
 
 export default function RaceScreen() {
   const params = useLocalSearchParams<{ track?: string; mode?: string; laps?: string }>();
@@ -245,11 +239,6 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
     else router.back();
   };
 
-  const { width } = useWindowDimensions();
-  const gap = track.size >= 7 ? 6 : 8;
-  const boardWidth = Math.min(width, 480) - 48;
-  const tileSize = Math.floor((boardWidth - gap * (track.size - 1)) / track.size);
-
   if (phase === 'summary') {
     return (
       <SafeAreaView style={styles.safe}>
@@ -322,45 +311,16 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
               <Text style={[styles.nextValue, tabular]}>{beforeStart ? '–' : target}</Text>
             </View>
 
-            <View style={[styles.board, { width: boardWidth, gap }]}>
-              {beforeStart ? (
-                <View style={[styles.countdown, { height: boardWidth }]}>
-                  <Lights lit={COUNTDOWN_FROM - countdown + 1} green={phase === 'green'} />
-                  <Text style={[styles.countdownText, phase === 'green' && { color: colors.green }]}>
-                    {phase === 'green' ? 'GO' : countdown}
-                  </Text>
-                </View>
-              ) : (
-                lap.board.map((value) => {
-                  const cleared = isCleared(lap, value);
-                  const wrong = value === wrongValue;
-                  return (
-                    <Pressable
-                      key={value}
-                      {...instantPressIn}
-                      onPressIn={() => onTap(value)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${value}`}
-                      accessibilityState={{ disabled: cleared }}
-                      style={[
-                        styles.tile,
-                        { width: tileSize, height: tileSize },
-                        cleared && styles.tileCleared,
-                        wrong && styles.tileWrong,
-                      ]}>
-                      <Text
-                        style={[
-                          styles.tileText,
-                          { fontSize: Math.round(tileSize * 0.45) },
-                          cleared && styles.tileTextCleared,
-                        ]}>
-                        {value}
-                      </Text>
-                    </Pressable>
-                  );
-                })
-              )}
-            </View>
+            {beforeStart ? (
+              <StartLights
+                size={track.size}
+                lit={COUNTDOWN_FROM - countdown + 1}
+                green={phase === 'green'}
+                text={phase === 'green' ? 'GO' : String(countdown)}
+              />
+            ) : (
+              <Board lap={lap} wrongValue={wrongValue} onTap={onTap} />
+            )}
 
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${(lap.nextIndex / total) * 100}%` }]} />
@@ -405,16 +365,6 @@ function Delta({
       <Text style={[styles.statCaption, tabular]}>
         {reference ? formatLapTime(reference.at(-1)!) : 'no lap yet'}
       </Text>
-    </View>
-  );
-}
-
-function Lights({ lit, green }: { lit: number; green: boolean }) {
-  return (
-    <View style={styles.lights} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {Array.from({ length: COUNTDOWN_FROM }, (_, i) => (
-        <View key={i} style={[styles.light, green ? styles.lightGreen : i < lit && styles.lightOn]} />
-      ))}
     </View>
   );
 }
@@ -587,32 +537,6 @@ const styles = StyleSheet.create({
   statCaption: { fontFamily: fonts.body, fontSize: 11, color: colors.muted },
   next: { flexDirection: 'row', justifyContent: 'center', alignItems: 'baseline', gap: 12, marginTop: 6 },
   nextValue: { fontFamily: fonts.heading, fontSize: 52, lineHeight: 56, color: colors.red, minWidth: 60 },
-  board: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10, alignSelf: 'center' },
-  tile: {
-    borderRadius: 12,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tileCleared: { backgroundColor: colors.carbon },
-  tileWrong: { borderColor: colors.yellow, borderWidth: 2, backgroundColor: '#3A3418' },
-  tileText: { fontFamily: fonts.heading, color: colors.text },
-  tileTextCleared: { color: colors.dim },
-  countdown: { width: '100%', alignItems: 'center', justifyContent: 'center', gap: 24 },
-  countdownText: { fontFamily: fonts.heading, fontSize: 64, color: colors.text },
-  lights: { flexDirection: 'row', gap: 14 },
-  light: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  lightOn: { backgroundColor: colors.red, borderColor: colors.red },
-  lightGreen: { backgroundColor: colors.green, borderColor: colors.green },
   progressTrack: {
     marginTop: 14,
     height: 6,

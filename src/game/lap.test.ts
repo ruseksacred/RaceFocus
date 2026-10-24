@@ -115,3 +115,11 @@ describe('splits', () => {
     expect(lap.splits.at(-1)).toBe(lapTimeMs(lap));
   });
 });
+
+describe('penalty setting', () => {
+  it('uses the configured penalty per wrong tap', () => {
+    const taps: Tap[] = [{ value: 4, at: 50 }, ...perfectTaps(9)];
+    expect(lapTimeMs(replayLap({ ...config, penaltyMs: 500 }, taps))).toBe(900 + 500);
+    expect(lapTimeMs(replayLap({ ...config, penaltyMs: 2000 }, taps))).toBe(900 + 2000);
+  });
+});

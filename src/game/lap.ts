@@ -1,12 +1,14 @@
 import { generateBoard, targetSequence, type Mode } from './board';
 
-/** Time added for each wrong tap. */
+/** Default time added for each wrong tap. */
 export const WRONG_TAP_PENALTY_MS = 1000;
 
 export interface LapConfig {
   size: number;
   seed: string;
   mode: Mode;
+  /** Time added per wrong tap. Defaults to WRONG_TAP_PENALTY_MS. */
+  penaltyMs?: number;
 }
 
 /** A tap on a tile. `at` is milliseconds since the lap started. */
@@ -88,7 +90,7 @@ export function applyTap(state: LapState, tap: Tap): { state: LapState; result: 
 }
 
 export function penaltyMs(state: LapState): number {
-  return state.mistakes * WRONG_TAP_PENALTY_MS;
+  return state.mistakes * (state.config.penaltyMs ?? WRONG_TAP_PENALTY_MS);
 }
 
 /** Running lap time including penalties. `now` is ms since the lap started. */

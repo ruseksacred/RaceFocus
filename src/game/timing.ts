@@ -16,13 +16,13 @@ export function deltaMs(lapMs: number, bestMs: number | null | undefined): numbe
 export function liveDeltaMs(
   splits: readonly number[],
   reference: readonly number[] | null | undefined,
-  now: number,
+  now?: number,
 ): number | null {
   if (!reference || reference.length === 0) return null;
   const k = splits.length;
   const atSplit = k > 0 && k <= reference.length ? splits[k - 1] - reference[k - 1] : null;
   const nextRef = reference[k];
-  const running = nextRef !== undefined && now > nextRef ? now - nextRef : null;
+  const running = now !== undefined && nextRef !== undefined && now > nextRef ? now - nextRef : null;
   if (atSplit === null) return running;
   if (running === null) return atSplit;
   return Math.max(atSplit, running);
