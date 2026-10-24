@@ -8,7 +8,7 @@ UI prototype (3 screens + logo concepts): https://claude.ai/artifact/TwpgGvPBKNc
 ## Core game
 
 - The board is an N×N grid of numbers 1..N², shuffled. The player taps them in order, as fast as possible.
-- One completed board = one **lap**. Board size = **track** (3×3 Sprint, 5×5 Circuit, 7×7 Endurance; more can be added).
+- One completed board = one **lap**. Board size = **track** (3×3 Sprint, 4×4 Street, 5×5 Circuit, 7×7 Endurance; more can be added).
 - Modes: ascending, descending (countdown), later harder variants (mixed colors, disappearing numbers).
 - A wrong tap adds a time penalty, so speed does not beat accuracy.
 - Every board is generated from a **seed**. Same seed = same layout for every player in a given race.

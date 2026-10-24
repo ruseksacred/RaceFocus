@@ -4,7 +4,7 @@ import { generateBoard, targetSequence } from './board';
 
 describe('generateBoard', () => {
   it('contains every number from 1 to size² exactly once', () => {
-    for (const size of [3, 5, 7]) {
+    for (const size of [3, 4, 5, 7]) {
       const board = generateBoard(size, 'abc');
       expect([...board].sort((a, b) => a - b)).toEqual(
         Array.from({ length: size * size }, (_, i) => i + 1),

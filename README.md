@@ -5,7 +5,7 @@ See `CLAUDE.md` for the full concept and roadmap.
 
 ## Current version: solo practice
 
-- Tracks: Sprint 3×3, Circuit 5×5, Endurance 7×7.
+- Tracks: Sprint 3×3, Street 4×4, Circuit 5×5, Endurance 7×7.
 - Modes: 1 → N and countdown.
 - Session length typed by the player (1–99 laps); laps run back to back with no pause, then a session summary.
 - Lights countdown before lap 1, lap timer, +1 s per wrong tap.

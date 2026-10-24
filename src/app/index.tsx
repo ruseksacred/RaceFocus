@@ -45,7 +45,9 @@ export default function Home() {
                 <Text style={styles.trackSize}>
                   {t.size}×{t.size}
                 </Text>
-                <Text style={styles.trackName}>{t.name}</Text>
+                <Text style={styles.trackName} numberOfLines={1}>
+                  {t.name}
+                </Text>
                 <Text style={[styles.trackBest, tabular, best === undefined && styles.trackBestEmpty]}>
                   {best === undefined ? '--:--.--' : formatLapTime(best)}
                 </Text>
@@ -121,20 +123,20 @@ const styles = StyleSheet.create({
   content: { padding: 24, paddingTop: 32, maxWidth: 480, width: '100%', alignSelf: 'center' },
   section: { marginTop: 32, gap: 6 },
   title: { fontFamily: fonts.heading, fontSize: 36, color: colors.text, lineHeight: 40 },
-  tracks: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  tracks: { flexDirection: 'row', gap: 8, marginTop: 14 },
   trackCard: {
     flex: 1,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
-  trackCardSelected: { borderColor: colors.red, borderWidth: 2, paddingVertical: 13, paddingHorizontal: 11 },
-  trackSize: { fontFamily: fonts.heading, fontSize: 32, color: colors.text, lineHeight: 34 },
-  trackName: { fontFamily: fonts.body, fontSize: 13, color: colors.muted, marginTop: 2 },
-  trackBest: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.green, marginTop: 10 },
+  trackCardSelected: { borderColor: colors.red, borderWidth: 2, paddingVertical: 11, paddingHorizontal: 7 },
+  trackSize: { fontFamily: fonts.heading, fontSize: 26, color: colors.text, lineHeight: 28 },
+  trackName: { fontFamily: fonts.body, fontSize: 11, color: colors.muted, marginTop: 2 },
+  trackBest: { fontFamily: fonts.bodySemi, fontSize: 12, color: colors.green, marginTop: 8 },
   trackBestEmpty: { color: colors.muted },
   modes: { flexDirection: 'row', gap: 10, marginTop: 12 },
   modeButton: {

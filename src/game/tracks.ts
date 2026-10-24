@@ -1,4 +1,4 @@
-export type TrackId = 'sprint' | 'circuit' | 'endurance';
+export type TrackId = 'sprint' | 'street' | 'circuit' | 'endurance';
 
 export interface Track {
   id: TrackId;
@@ -8,6 +8,7 @@ export interface Track {
 
 export const TRACKS: readonly Track[] = [
   { id: 'sprint', name: 'Sprint', size: 3 },
+  { id: 'street', name: 'Street', size: 4 },
   { id: 'circuit', name: 'Circuit', size: 5 },
   { id: 'endurance', name: 'Endurance', size: 7 },
 ];
