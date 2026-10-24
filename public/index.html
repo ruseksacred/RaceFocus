@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>%WEB_TITLE%</title>
+    <meta name="description" content="Speed and focus training with a motorsport twist: tap the numbers in order, lap after lap." />
+    <meta name="theme-color" content="#15151E" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <!-- iPhone: full screen from the home screen, dark status bar over the app -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="RaceFocus" />
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+        background: #15151e;
+        color-scheme: dark;
+      }
+      body {
+        overflow: hidden;
+        /* A tapping game: no double-tap zoom, no pull-to-refresh, no long-press callouts. */
+        touch-action: manipulation;
+        overscroll-behavior: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>RaceFocus needs JavaScript to run.</noscript>
+    <div id="root"></div>
+    <script>
+      // Register the service worker only for exported builds, never for the dev server.
+      window.addEventListener('load', function () {
+        var built = document.querySelector('script[src*="/_expo/static/js/web/"]');
+        if ('serviceWorker' in navigator && built) navigator.serviceWorker.register('/sw.js').catch(function () {});
+      });
+    </script>
+  </body>
+</html>

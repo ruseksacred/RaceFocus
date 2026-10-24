@@ -29,6 +29,21 @@ Rooms need Firebase (Realtime Database + anonymous sign-in):
 
 To try rooms without a project, run `npm run emulators` (needs Java) and put `EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=localhost` in `.env` (your computer's LAN IP when testing on a phone).
 
+## Install on a phone (PWA)
+
+The web build is an installable app (manifest, icons, service worker, works offline after the first visit).
+
+Deploy with Netlify (free):
+
+1. Sign in at https://app.netlify.com with GitHub → **Add new site → Import an existing project** → pick this repo.
+2. Netlify reads `netlify.toml`: build `npx expo export --platform web`, publish `dist`. Choose the branch to deploy.
+3. For private rooms, add the `EXPO_PUBLIC_FIREBASE_*` variables from `.env.example` under Site configuration → Environment variables, then redeploy.
+
+Then open the site on the phone:
+
+- **Android (Chrome):** menu ⋮ → **Install app** (or *Add to Home screen*).
+- **iPhone (Safari):** Share → **Add to Home Screen**.
+
 ## Run
 
 ```bash

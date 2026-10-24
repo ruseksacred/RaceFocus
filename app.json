@@ -18,10 +18,19 @@
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./public/icons/icon-192.png",
+      "name": "RaceFocus",
+      "shortName": "RaceFocus",
+      "themeColor": "#15151E",
+      "backgroundColor": "#15151E"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "asyncRoutes": false
+        }
+      ],
       [
         "expo-splash-screen",
         {
