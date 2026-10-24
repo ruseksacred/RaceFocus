@@ -36,11 +36,11 @@ import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
 
 /**
- * countdown → running → finish → summary.
- * Lights only before the first lap. Each next lap starts the instant the previous
+ * countdown → green → running → finish → summary.
+ * Lights only before the first lap: three red, then all green, then the clock starts. Each next lap starts the instant the previous
  * one ends, with no pause, like a real race.
  */
-type Phase = 'countdown' | 'running' | 'finish' | 'summary';
+type Phase = 'countdown' | 'green' | 'running' | 'finish' | 'summary';
 
 /** Reference laps for the live delta, fixed when a lap starts. */
 interface References {
@@ -59,6 +59,8 @@ interface LapResult {
 
 const COUNTDOWN_FROM = 3;
 const COUNTDOWN_STEP_MS = 700;
+/** How long all lights stay green before the board appears and the clock starts. */
+const GREEN_MS = 500;
 const FINISH_MS = 2600;
 const YELLOW_FLAG_MS = 2000;
 const DEFAULT_LAPS = 5;
@@ -118,10 +120,17 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
     if (phase !== 'countdown') return;
     const id = setTimeout(() => {
       if (countdown > 1) setCountdown(countdown - 1);
-      else startLap(performance.now());
+      else setPhase('green');
     }, COUNTDOWN_STEP_MS);
     return () => clearTimeout(id);
-  }, [phase, countdown, startLap]);
+  }, [phase, countdown]);
+
+  // All lights green, then go.
+  useEffect(() => {
+    if (phase !== 'green') return;
+    const id = setTimeout(() => startLap(performance.now()), GREEN_MS);
+    return () => clearTimeout(id);
+  }, [phase, startLap]);
 
   // Running clock.
   useEffect(() => {
@@ -231,12 +240,13 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
 
   // At the finish the session already holds the lap just driven.
   const lapNumber = phase === 'finish' ? session.laps.length : currentLapNumber(session);
-  const time = phase === 'countdown' ? 0 : elapsedMs(lap, now);
+  const beforeStart = phase === 'countdown' || phase === 'green';
+  const time = beforeStart ? 0 : elapsedMs(lap, now);
   const total = lap.targets.length;
   const target = nextTarget(lap);
 
-  const liveSession = phase === 'countdown' ? null : liveDeltaMs(lap.splits, refs.session, time);
-  const livePersonal = phase === 'countdown' ? null : liveDeltaMs(lap.splits, refs.personal, time);
+  const liveSession = beforeStart ? null : liveDeltaMs(lap.splits, refs.session, time);
+  const livePersonal = beforeStart ? null : liveDeltaMs(lap.splits, refs.personal, time);
 
   let flag: FlagKind | null = null;
   if (phase === 'finish') flag = 'chequered';
@@ -283,14 +293,16 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
             <LastLap result={phase === 'running' ? result : null} lapNumber={session.laps.length} />
             <View style={styles.next}>
               <Text style={label}>Next</Text>
-              <Text style={[styles.nextValue, tabular]}>{phase === 'countdown' ? '–' : target}</Text>
+              <Text style={[styles.nextValue, tabular]}>{beforeStart ? '–' : target}</Text>
             </View>
 
             <View style={[styles.board, { width: boardWidth, gap }]}>
-              {phase === 'countdown' ? (
+              {beforeStart ? (
                 <View style={[styles.countdown, { height: boardWidth }]}>
-                  <Lights lit={COUNTDOWN_FROM - countdown + 1} />
-                  <Text style={styles.countdownText}>{countdown}</Text>
+                  <Lights lit={COUNTDOWN_FROM - countdown + 1} green={phase === 'green'} />
+                  <Text style={[styles.countdownText, phase === 'green' && { color: colors.green }]}>
+                    {phase === 'green' ? 'GO' : countdown}
+                  </Text>
                 </View>
               ) : (
                 lap.board.map((value) => {
@@ -371,11 +383,11 @@ function Delta({
   );
 }
 
-function Lights({ lit }: { lit: number }) {
+function Lights({ lit, green }: { lit: number; green: boolean }) {
   return (
     <View style={styles.lights} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       {Array.from({ length: COUNTDOWN_FROM }, (_, i) => (
-        <View key={i} style={[styles.light, i < lit && styles.lightOn]} />
+        <View key={i} style={[styles.light, green ? styles.lightGreen : i < lit && styles.lightOn]} />
       ))}
     </View>
   );
@@ -574,6 +586,7 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   lightOn: { backgroundColor: colors.red, borderColor: colors.red },
+  lightGreen: { backgroundColor: colors.green, borderColor: colors.green },
   progressTrack: {
     marginTop: 14,
     height: 6,
