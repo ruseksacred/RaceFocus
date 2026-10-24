@@ -36,6 +36,15 @@
         height: 100%;
         flex: 1;
       }
+      /* iPhone Safari: 100% reaches under the bottom toolbar and cuts off the tab bar.
+         dvh is the height that is actually visible right now. */
+      @supports (height: 100dvh) {
+        html,
+        body,
+        #root {
+          height: 100dvh;
+        }
+      }
     </style>
   </head>
 
