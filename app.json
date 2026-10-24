@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "RaceFocus",
+    "slug": "racefocus",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "racefocus",
+    "userInterfaceStyle": "dark",
+    "ios": {},
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#15151E",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./public/icons/icon-192.png",
+      "name": "RaceFocus",
+      "shortName": "RaceFocus",
+      "themeColor": "#15151E",
+      "backgroundColor": "#15151E"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "asyncRoutes": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#15151E",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 160
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "backgroundColor": "#15151E"
+  }
+}
