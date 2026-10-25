@@ -5,36 +5,109 @@
         ".read": "auth != null",
         ".write": "auth != null && (data.exists() ? data.child('hostId').val() === auth.uid : newData.child('hostId').val() === auth.uid)",
         ".validate": "!newData.exists() || newData.hasChildren(['hostId', 'rules', 'status', 'createdAt'])",
-        "hostId": { ".validate": "newData.isString()" },
+        "hostId": {
+          ".validate": "newData.isString()"
+        },
         "status": {
           ".validate": "newData.val() === 'lobby' || newData.val() === 'racing' || newData.val() === 'finished'"
         },
-        "seed": { ".validate": "newData.isString() && newData.val().length <= 32" },
-        "startAt": { ".validate": "newData.isNumber()" },
-        "createdAt": { ".validate": "newData.isNumber()" },
+        "seed": {
+          ".validate": "newData.isString() && newData.val().length <= 32"
+        },
+        "startAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
         "rules": {
-          "track": { ".validate": "newData.val() === 'sprint' || newData.val() === 'street' || newData.val() === 'circuit' || newData.val() === 'endurance'" },
-          "mode": { ".validate": "newData.val() === 'ascending' || newData.val() === 'descending'" },
-          "laps": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 99" },
-          "penaltyMs": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000" },
-          "maxPlayers": { ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 12" },
-          "$other": { ".validate": false }
+          "track": {
+            ".validate": "newData.val() === 'sprint' || newData.val() === 'street' || newData.val() === 'circuit' || newData.val() === 'endurance'"
+          },
+          "mode": {
+            ".validate": "newData.val() === 'ascending' || newData.val() === 'descending'"
+          },
+          "laps": {
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 99"
+          },
+          "penaltyMs": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000"
+          },
+          "maxPlayers": {
+            ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 12"
+          },
+          "$other": {
+            ".validate": false
+          }
         },
         "players": {
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && (data.exists() || root.child('rooms').child($code).child('status').val() === 'lobby')",
             ".validate": "!newData.exists() || newData.hasChildren(['name', 'joinedAt'])",
-            "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
-            "joinedAt": { ".validate": "newData.isNumber()" },
-            "mistakes": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-            "retired": { ".validate": "newData.isBoolean()" },
-            "crossings": {
-              "$i": { ".validate": "newData.isNumber() && newData.val() >= 0" }
+            "name": {
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
             },
-            "$other": { ".validate": false }
+            "joinedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "mistakes": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "retired": {
+              ".validate": "newData.isBoolean()"
+            },
+            "crossings": {
+              "$i": {
+                ".validate": "newData.isNumber() && newData.val() >= 0"
+              }
+            },
+            "rating": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000"
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         },
-        "$other": { ".validate": false }
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "nicks": {
+      "$key": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && (!newData.exists() || newData.val() === auth.uid)))",
+        ".validate": "!newData.exists() || newData.isString()"
+      }
+    },
+    "users": {
+      "$uid": {
+        "profile": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider !== 'anonymous'",
+          ".validate": "!newData.exists() || newData.hasChildren(['nick', 'rating', 'ratedRaces', 'updatedAt'])",
+          "nick": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+          },
+          "rating": {
+            ".validate": "newData.isNumber()"
+          },
+          "ratedRaces": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "updatedAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "data": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider !== 'anonymous'"
+        },
+        ".write": "auth != null && auth.uid === $uid && !newData.exists()"
       }
     }
   }

@@ -20,6 +20,7 @@ import {
 } from '@/game';
 import { MODE_SHORT } from '@/labels';
 import { firebaseConfigured } from '@/net/firebase';
+import { useAccount } from '@/net/account';
 import { createRoom, joinRoom, RoomError } from '@/net/rooms';
 import { useProfile } from '@/store/profile';
 import { colors, fonts, label } from '@/theme';
@@ -27,6 +28,8 @@ import { colors, fonts, label } from '@/theme';
 export default function Rooms() {
   const nick = useProfile((state) => state.nick);
   const setNick = useProfile((state) => state.setNick);
+  // With an account the unique account nick is used; guests type any nick.
+  const accountNick = useAccount((state) => !state.isGuest && !state.needsNick);
   const [rules, setRules] = useState<RoomRules>(DEFAULT_RULES);
   const [codeText, setCodeText] = useState('');
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
@@ -80,16 +83,23 @@ export default function Rooms() {
       </Text>
 
       <SectionLabel>Your nick</SectionLabel>
-      <TextInput
-        value={nick}
-        onChangeText={setNick}
-        placeholder="e.g. Max"
-        placeholderTextColor={colors.muted}
-        maxLength={NICK_MAX_LENGTH}
-        autoCorrect={false}
-        accessibilityLabel="Your nick"
-        style={[styles.input, !validNick && nick.length > 0 && styles.inputInvalid]}
-      />
+      {accountNick ? (
+        <View style={[styles.input, styles.accountNick]}>
+          <Text style={styles.accountNickText}>{nick}</Text>
+          <Text style={styles.accountNickNote}>from your account</Text>
+        </View>
+      ) : (
+        <TextInput
+          value={nick}
+          onChangeText={setNick}
+          placeholder="e.g. Max"
+          placeholderTextColor={colors.muted}
+          maxLength={NICK_MAX_LENGTH}
+          autoCorrect={false}
+          accessibilityLabel="Your nick"
+          style={[styles.input, !validNick && nick.length > 0 && styles.inputInvalid]}
+        />
+      )}
 
       <SectionLabel>Join a room</SectionLabel>
       <View style={styles.joinRow}>
@@ -278,6 +288,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   inputInvalid: { borderColor: colors.red },
+  accountNick: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  accountNickText: { fontFamily: fonts.bodySemi, fontSize: 16, color: colors.text },
+  accountNickNote: { fontFamily: fonts.body, fontSize: 12, color: colors.muted },
   joinRow: { flexDirection: 'row', gap: 10 },
   codeInput: { flex: 1, minWidth: 0, fontFamily: fonts.heading, fontSize: 24, letterSpacing: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

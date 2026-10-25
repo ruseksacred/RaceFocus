@@ -105,7 +105,7 @@ export default function Practice() {
           <Text style={styles.targetMeta}>
             {best === undefined
               ? `Set a lap on ${track.name} to get a target`
-              : `${laps ?? '–'} laps × your best lap`}
+              : `${laps ?? '–'} ${laps === 1 ? 'lap' : 'laps'} × your best lap`}
           </Text>
         </View>
         <Text style={[styles.targetTime, tabular]}>

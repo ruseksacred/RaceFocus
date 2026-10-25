@@ -36,6 +36,8 @@ import {
   watchRoom,
   type Room,
 } from '@/net/rooms';
+import { buildRaceRecord } from '@/net/race-record';
+import { useCareer } from '@/store/career';
 import { colors, fonts, label, tabular } from '@/theme';
 
 const YELLOW_FLAG_MS = 2000;
@@ -288,7 +290,20 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
     setDriving(next);
   };
 
+  // Once everyone still racing has finished, this driver's race goes into their career (with Elo).
+  const addRace = useCareer((state) => state.addRace);
+  const raceId = `${code}:${room.startAt ?? 0}`;
+  const savedRace = useCareer((state) => state.history.find((r) => r.id === raceId));
+  const rating = useCareer((state) => state.rating);
+  const raceClosed = driving.finished && (allDone || room.status === 'finished');
+  useEffect(() => {
+    if (raceClosed) addRace(buildRaceRecord(code, room, uid, standings));
+  }, [raceClosed, room, code, uid, standings, addRace]);
+
   const leave = async () => {
+    // Leaving mid-race counts as a retirement.
+    if (room.status === 'racing' && !driving.finished)
+      addRace(buildRaceRecord(code, room, uid, standings, true));
     await leaveRoom(code, uid, room).catch(() => {});
     router.back();
   };
@@ -313,6 +328,7 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
         standings={standings}
         numbersPerLap={numbersPerLap}
         allDone={allDone}
+        rating={savedRace ? { value: rating, change: savedRace.ratingDelta } : null}
         onLeave={leave}
       />
     );
@@ -442,6 +458,7 @@ function Results({
   standings,
   numbersPerLap,
   allDone,
+  rating,
   onLeave,
 }: {
   code: string;
@@ -450,6 +467,7 @@ function Results({
   standings: Standing[];
   numbersPerLap: number;
   allDone: boolean;
+  rating: { value: number; change: number } | null;
   onLeave: () => void;
 }) {
   const drivers = driversOf(room);
@@ -467,7 +485,8 @@ function Results({
       <ScrollView contentContainerStyle={styles.content}>
         <FlagBanner flag={allDone ? 'chequered' : me.retired ? null : 'chequered'} />
         <Text style={[label, styles.resultsMeta]}>
-          Room {code} · {trackLabel(getTrack(room.rules.track)!)} · {room.rules.laps} laps
+          Room {code} · {trackLabel(getTrack(room.rules.track)!)} · {room.rules.laps}{' '}
+          {room.rules.laps === 1 ? 'lap' : 'laps'}
         </Text>
         <Text style={styles.title}>
           {me.retired
@@ -527,6 +546,16 @@ function Results({
             <MyStat title="Best lap" value={myLaps.length ? formatLapTime(Math.min(...myLaps)) : '—'} />
             <MyStat title="Accuracy" value={`${Math.round(accuracy * 100)}%`} />
             <MyStat title="Mistakes" value={String(me.mistakes)} />
+            <MyStat
+              title="Rating"
+              value={rating ? `${Math.round(rating.value)}` : '…'}
+              note={
+                rating
+                  ? `${rating.change >= 0 ? '+' : '−'}${Math.abs(rating.change)} · beta`
+                  : 'after the finish'
+              }
+              noteColor={rating ? (rating.change >= 0 ? colors.green : colors.red) : colors.muted}
+            />
           </View>
           {myLaps.length > 0 && (
             <Text style={[styles.body, tabular]}>
@@ -552,11 +581,22 @@ function Results({
   );
 }
 
-function MyStat({ title, value }: { title: string; value: string }) {
+function MyStat({
+  title,
+  value,
+  note,
+  noteColor = colors.muted,
+}: {
+  title: string;
+  value: string;
+  note?: string;
+  noteColor?: string;
+}) {
   return (
     <View style={styles.gap}>
       <Text style={[label, styles.small]}>{title}</Text>
       <Text style={[styles.gapValue, tabular, { color: colors.text }]}>{value}</Text>
+      {note && <Text style={[styles.resMeta, tabular, { color: noteColor }]}>{note}</Text>}
     </View>
   );
 }

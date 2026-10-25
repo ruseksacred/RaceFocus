@@ -1,15 +1,11 @@
 import { getApps, initializeApp, type FirebaseApp } from 'firebase/app';
-import {
-  connectAuthEmulator,
-  inMemoryPersistence,
-  initializeAuth,
-  signInAnonymously,
-  type Auth,
-} from 'firebase/auth';
+import { connectAuthEmulator, signInAnonymously, type Auth } from 'firebase/auth';
 import { connectDatabaseEmulator, getDatabase, onValue, ref, type Database } from 'firebase/database';
 
+import { createAuth } from './auth-setup';
+
 /**
- * Firebase setup for private rooms.
+ * Firebase setup: guest and account sign-in, private rooms, account data.
  *
  * Uses the RaceFocus project below; EXPO_PUBLIC_FIREBASE_* variables (see .env.example) override it.
  * With EXPO_PUBLIC_FIREBASE_EMULATOR_HOST set, the app talks to the local
@@ -61,8 +57,8 @@ export function firebase(): FirebaseHandles {
   if (!firebaseConfigured) throw new Error('Firebase is not configured');
   if (handles) return handles;
   const app = getApps()[0] ?? initializeApp(config);
-  // In-memory sign-in: a fresh anonymous driver each time the app starts. Fine until accounts exist.
-  const auth = initializeAuth(app, { persistence: inMemoryPersistence });
+  // Sign-in is kept on the device, so a driver (guest or account) stays the same between visits.
+  const auth = createAuth(app);
   const db = getDatabase(app);
   if (emulatorHost) {
     connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true });
@@ -79,6 +75,7 @@ export function firebase(): FirebaseHandles {
 /** Signs in anonymously if needed and returns the driver's id. */
 export async function signIn(): Promise<string> {
   const { auth } = firebase();
+  await auth.authStateReady();
   if (auth.currentUser) return auth.currentUser.uid;
   const credential = await signInAnonymously(auth);
   return credential.user.uid;

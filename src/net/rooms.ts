@@ -2,6 +2,8 @@ import { get, onDisconnect, onValue, ref, remove, runTransaction, set, update } 
 
 import { generateRoomCode, MIN_PLAYERS, randomSeed, type DriverProgress, type RoomRules } from '@/game';
 
+import { useCareer } from '@/store/career';
+
 import { firebase, serverNow, signIn } from './firebase';
 
 export type RoomStatus = 'lobby' | 'racing' | 'finished';
@@ -11,6 +13,8 @@ export interface RoomPlayer {
   joinedAt: number;
   mistakes?: number;
   retired?: boolean;
+  /** Driver's rating when they joined, for the Elo change after the race. */
+  rating?: number;
   /** Race time at each cleared number. Firebase may return an array or an object keyed by index. */
   crossings?: number[] | Record<string, number>;
 }
@@ -33,6 +37,8 @@ const roomRef = (code: string) => ref(firebase().db, `rooms/${code}`);
 const playerRef = (code: string, uid: string) => ref(firebase().db, `rooms/${code}/players/${uid}`);
 
 export class RoomError extends Error {}
+
+const currentRating = () => Math.round(useCareer.getState().rating);
 
 const SERVER_TIMEOUT_MS = 12000;
 
@@ -69,7 +75,7 @@ async function createRoomNow(nick: string, rules: RoomRules): Promise<string> {
       createdAt: serverNow(),
       rules,
       status: 'lobby',
-      players: { [uid]: { name: nick, joinedAt: serverNow(), mistakes: 0 } },
+      players: { [uid]: { name: nick, joinedAt: serverNow(), mistakes: 0, rating: currentRating() } },
     };
     const result = await runTransaction(roomRef(code), (current) => (current === null ? room : undefined));
     if (result.committed) {
@@ -93,7 +99,12 @@ async function joinRoomNow(code: string, nick: string): Promise<void> {
   if (players[uid]) return;
   if (room.status !== 'lobby') throw new RoomError('This race has already started.');
   if (Object.keys(players).length >= room.rules.maxPlayers) throw new RoomError('This room is full.');
-  await set(playerRef(code, uid), { name: nick, joinedAt: serverNow(), mistakes: 0 });
+  await set(playerRef(code, uid), {
+    name: nick,
+    joinedAt: serverNow(),
+    mistakes: 0,
+    rating: currentRating(),
+  });
   onDisconnect(playerRef(code, uid)).remove();
 }
 

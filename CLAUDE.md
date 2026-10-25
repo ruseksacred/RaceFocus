@@ -26,6 +26,8 @@ UI prototype (3 screens + logo concepts): https://claude.ai/artifact/TwpgGvPBKNc
 
 **Private rooms (built, first version):** a separate Race tab. Host sets track, mode, laps, wrong-tap penalty (0.5/1/2 s) and max drivers (2–12); others join with a 5-letter code and a nick (anonymous sign-in, no accounts yet). The host starts; everyone gets per-lap seeds from the room seed and counts down to the same server time (Firebase server clock offset). Each correct tap reports a crossing (race time incl. penalties); standings and F1-style gaps (to P1 and to the car ahead, at the same number) are computed on every client from those crossings (`src/game/standings.ts`). Results: order, gap to winner, best laps (fastest of the race purple), mistakes, accuracy; the host can start a new race. Known gap: times are still reported by the client; before rooms feed rankings, validate tap sequences on the server (Cloud Functions needs the paid Blaze plan).
 
+**Accounts (built, first version):** guests are anonymous Firebase users; Profile creates an account by linking e-mail/password or Google (web popup; native Google sign-in comes with the Play build), so the uid and guest progress stay. Nicks are unique via `nicks/{lowercase key}` = uid (accounts only). Cloud data: `users/{uid}/data` (owner only: best laps, recent sessions, solo totals, career) and `users/{uid}/profile` (readable by signed-in users: nick, rating, ratedRaces). `profile.ownerUid` on the device decides merging: guest data merges into a new account, another account's data is dropped. Sign out clears the device; delete account removes data, nick and user. Rating is a beta multiplayer Elo (`src/game/rating.ts`) computed on each client after a room race closes; move it to the server (Cloud Functions, Blaze plan) before any public ranking.
+
 Shared race engine to build once: lobby, server-time start, shared seed, live standings, result storage. Rooms, daily and championships are only different ways to create a race.
 
 ## Rules that must hold
@@ -62,7 +64,7 @@ Style inspired by F1.com colors (palette only). Do not use the F1 logo, its type
 
 Fonts: Barlow Condensed (headings, numbers, timers) and Inter (body). Use tabular numbers for all timers. Keep text contrast at least 4.5:1.
 
-App navigation: bottom tab bar with icons (Home, Practice, Stats, Profile). Home has Quick start with the last setup, tracks with best laps, recent sessions and a Daily race teaser. Practice is the solo setup (track list, mode, lap count typed or −/+, target race time). Stats and Profile are placeholders for now; the profile shows placeholder initials until accounts exist. Data stays in memory until local storage is added.
+App navigation: bottom tab bar with icons (Home, Practice, Stats, Profile). Home has Quick start with the last setup, tracks with best laps, recent sessions and a Daily race teaser. Practice is the solo setup (track list, mode, lap count typed or −/+, target race time). Race is the private rooms tab. Stats shows rating (beta), race and solo totals, recent races and best laps. Profile handles the account. All stores persist on the device (AsyncStorage / localStorage).
 
 Screens in the prototype: Home (daily race card with countdown, tracks with best times, solo and private room, tab bar), Race (lap counter, large timer, delta to best, gap to P1, next number, 5×5 grid, progress), Results (standings with best lap and gap, rating and accuracy).
 
