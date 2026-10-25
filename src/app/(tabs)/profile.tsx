@@ -92,16 +92,24 @@ function ProfileTop() {
 }
 
 function Header({ title, subtitle }: { title: string; subtitle: string }) {
+  const m = useMessages();
   return (
     <>
       <ProfileTop />
       <View style={styles.header}>
-        <Avatar size={72} />
+        <Link href="/helmet" asChild>
+          <Pressable accessibilityRole="button" accessibilityLabel={m.helmet.edit}>
+            <Avatar size={80} />
+          </Pressable>
+        </Link>
         <View style={styles.headerText}>
           <Text style={ui.title} numberOfLines={1}>
             {title}
           </Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
+          <Link href="/helmet" style={styles.editHelmet}>
+            {m.helmet.edit} ›
+          </Link>
         </View>
       </View>
     </>
@@ -219,7 +227,7 @@ function GuestProfile() {
             accessibilityState={{ selected: mode === tab }}
             style={[styles.tab, mode === tab && styles.tabActive]}>
             <Text style={[styles.tabText, mode === tab && styles.tabTextActive]}>
-              {mode === 'create' ? m.profile.createAccountTab : m.profile.signInTab}
+              {tab === 'create' ? m.profile.createAccountTab : m.profile.signInTab}
             </Text>
           </Pressable>
         ))}
@@ -404,6 +412,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 12 },
   headerText: { flex: 1, minWidth: 0 },
   subtitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.muted },
+  editHelmet: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.text, marginTop: 4 },
   card: { padding: 16, gap: 12, marginTop: 16 },
   cardTitle: { fontFamily: fonts.bodySemi, fontSize: 16, color: colors.text },
   small: { fontSize: 11 },

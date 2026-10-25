@@ -4,6 +4,7 @@ import { generateRoomCode, MIN_PLAYERS, randomSeed, type DriverProgress, type Ro
 import { AppError as RoomError } from '@/i18n';
 
 import { useCareer } from '@/store/career';
+import { useProfile } from '@/store/profile';
 
 import { firebase, serverNow, signIn } from './firebase';
 
@@ -18,6 +19,8 @@ export interface RoomPlayer {
   rating?: number;
   /** Race time at each cleared number. Firebase may return an array or an object keyed by index. */
   crossings?: number[] | Record<string, number>;
+  /** Helmet string (see `encodeHelmet`); missing means the default helmet for the name. */
+  helmet?: string;
 }
 
 export interface Room {
@@ -41,6 +44,15 @@ const playerRef = (code: string, uid: string) => ref(firebase().db, `rooms/${cod
 export { RoomError };
 
 const currentRating = () => Math.round(useCareer.getState().rating);
+
+/**
+ * Shows this driver's helmet in the room. Written on its own and allowed to fail, so a room
+ * still works with database rules that do not know helmets yet.
+ */
+function shareHelmet(code: string, uid: string) {
+  const helmet = useProfile.getState().helmet;
+  if (helmet) set(ref(firebase().db, `rooms/${code}/players/${uid}/helmet`), helmet).catch(() => {});
+}
 
 const SERVER_TIMEOUT_MS = 12000;
 
@@ -82,6 +94,7 @@ async function createRoomNow(nick: string, rules: RoomRules): Promise<string> {
     const result = await runTransaction(roomRef(code), (current) => (current === null ? room : undefined));
     if (result.committed) {
       onDisconnect(roomRef(code)).remove();
+      shareHelmet(code, uid);
       return code;
     }
   }
@@ -108,6 +121,7 @@ async function joinRoomNow(code: string, nick: string): Promise<void> {
     rating: currentRating(),
   });
   onDisconnect(playerRef(code, uid)).remove();
+  shareHelmet(code, uid);
 }
 
 export function watchRoom(code: string, onChange: (room: Room | null) => void): () => void {

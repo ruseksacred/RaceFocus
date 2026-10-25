@@ -70,6 +70,9 @@
             "rating": {
               ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000"
             },
+            "helmet": {
+              ".validate": "newData.isString() && newData.val().length <= 40 && newData.val().matches(/^[a-z]+\\.[a-z]+\\.[a-z]+\\.[0-9]{1,2}$/)"
+            },
             "$other": {
               ".validate": false
             }

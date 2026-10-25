@@ -15,7 +15,7 @@ import {
 import { get, ref, remove, runTransaction, set } from 'firebase/database';
 import { create } from 'zustand';
 
-import { normalizeNick } from '@/game';
+import { decodeHelmet, normalizeNick } from '@/game';
 import { AppError as AccountError, type ErrorKind } from '@/i18n';
 import { mergeRecent, usePractice, type SessionSummary, type SoloTotals } from '@/store/practice';
 import { careerOf, EMPTY_CAREER, useCareer, type Career } from '@/store/career';
@@ -60,6 +60,8 @@ interface CloudData {
   recent?: SessionSummary[];
   totals?: SoloTotals;
   career?: Career;
+  /** Helmet string (see `encodeHelmet`); null when not designed yet. */
+  helmet?: string | null;
 }
 
 const isAccount = (user: User | null): boolean => !!user && !user.isAnonymous;
@@ -81,6 +83,7 @@ function localData(): Required<CloudData> {
     recent: practice.recent,
     totals: practice.totals,
     career: careerOf(useCareer.getState()),
+    helmet: useProfile.getState().helmet,
   };
 }
 
@@ -121,7 +124,12 @@ async function pullAccount(user: User) {
         : local.totals,
   });
   useCareer.getState().load(cloudCareer.races >= local.career.races ? cloudCareer : local.career);
-  useProfile.setState({ ownerUid: user.uid, nick: nick ?? profile.nick });
+  useProfile.setState({
+    ownerUid: user.uid,
+    nick: nick ?? profile.nick,
+    // The account's helmet wins; a guest helmet moves into a new account that has none.
+    helmet: decodeHelmet(cloud.helmet) ? cloud.helmet! : local.helmet,
+  });
   useAccount.setState({ needsNick: nick === null });
   await pushAccount(user.uid);
 }
@@ -298,7 +306,7 @@ export async function resetPassword(email: string) {
 export async function signOutAccount() {
   await signOut(firebase().auth);
   resetLocalData();
-  useProfile.setState({ ownerUid: null, nick: '' });
+  useProfile.setState({ ownerUid: null, nick: '', helmet: null });
 }
 
 /** Deletes the account and all its data. */
@@ -315,7 +323,7 @@ export async function deleteAccount() {
     throw toAccountError(error);
   }
   resetLocalData();
-  useProfile.setState({ ownerUid: null, nick: '' });
+  useProfile.setState({ ownerUid: null, nick: '', helmet: null });
 }
 
 function toAccountError(error: unknown): Error {
