@@ -20,12 +20,7 @@ See `CLAUDE.md` for the full concept and roadmap.
 - During the race: position, gap to P1 and to the car ahead (F1-style, at the same number), live standings, flags.
 - Results: finishing order, gap to the winner, best laps (fastest of the race in purple), mistakes, accuracy. The host can start a new race in the same room.
 
-Rooms need Firebase (Realtime Database + anonymous sign-in):
-
-1. Create a project at https://console.firebase.google.com and add a Web app.
-2. Build → Authentication → Sign-in method → enable **Anonymous**.
-3. Build → Realtime Database → create a database, then paste the contents of `database.rules.json` into its Rules tab (or `npx firebase deploy --only database`).
-4. Copy `.env.example` to `.env` and fill in the web app config.
+Rooms use the Firebase project `racefocus-b709c` (Realtime Database in europe-west1 + anonymous sign-in); its web config is in `src/net/firebase.ts`. When `database.rules.json` changes, paste it into Realtime Database → Rules in the Firebase console (or `npx firebase deploy --only database`). To use another project, set the variables from `.env.example`.
 
 To try rooms without a project, run `npm run emulators` (needs Java) and put `EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=localhost` in `.env` (your computer's LAN IP when testing on a phone).
 
@@ -37,7 +32,6 @@ Deploy with Netlify (free):
 
 1. Sign in at https://app.netlify.com with GitHub → **Add new site → Import an existing project** → pick this repo.
 2. Netlify reads `netlify.toml`: build `npx expo export --platform web`, publish `dist`. Choose the branch to deploy.
-3. For private rooms, add the `EXPO_PUBLIC_FIREBASE_*` variables from `.env.example` under Site configuration → Environment variables, then redeploy.
 
 Then open the site on the phone:
 
