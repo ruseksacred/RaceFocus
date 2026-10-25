@@ -7,15 +7,16 @@ See `CLAUDE.md` for the full concept and roadmap.
 
 - Tracks: Sprint 3×3, Street 4×4, Circuit 5×5, Endurance 7×7.
 - Modes: 1 → N and countdown.
-- Session length typed by the player (1–99 laps); laps run back to back with no pause, then a session summary.
+- Race length: laps (1–99) or time (1–30 min). When time is up you finish the lap you are on. Laps run back to back with no pause, then a session summary.
 - Lights countdown before lap 1, lap timer, +1 s per wrong tap.
 - Live delta to the session best and personal best, updated at every tap.
 - Flags: yellow after a wrong tap, white before the final lap, chequered at the finish.
-- Best laps are kept in memory only (saved records come in roadmap step 2).
+- Records, recent sessions, setup and nick are saved on the device.
 
 ## Private rooms (live races)
 
-- Race tab: create a room (track, mode, laps, penalty per wrong tap, max drivers) or join one with a 5-letter code and a nick.
+- Race tab: create a room (track, mode, laps or time, penalty per wrong tap, max drivers) or join one with a 5-letter code and a nick.
+- Timed races: when time is up the leader finishes the lap they are on and takes the chequered flag; everyone else then finishes at the end of their current lap. Order is laps completed, then time; lapped drivers show “+N laps”.
 - Lobby shows the drivers; the host starts the race. Everyone gets the same boards and counts down to the same server time.
 - During the race: position, gap to P1 and to the car ahead (F1-style, at the same number), live standings, flags.
 - Results: finishing order, gap to the winner, best laps (fastest of the race in purple), mistakes, accuracy. The host can start a new race in the same room.
@@ -23,6 +24,15 @@ See `CLAUDE.md` for the full concept and roadmap.
 Rooms use the Firebase project `racefocus-b709c` (Realtime Database in europe-west1 + anonymous sign-in); its web config is in `src/net/firebase.ts`. When `database.rules.json` changes, paste it into Realtime Database → Rules in the Firebase console (or `npx firebase deploy --only database`). To use another project, set the variables from `.env.example`.
 
 To try rooms without a project, run `npm run emulators` (needs Java) and put `EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=localhost` in `.env` (your computer's LAN IP when testing on a phone).
+
+## Accounts
+
+- Play as a guest (data on the device) or create an account in **Profile**: e-mail and password, or Google (web).
+- Guest progress moves into the new account. With an account, records, solo totals, race stats and rating are saved in the cloud and restored after signing in on any device.
+- Nicks are unique (case-insensitive). Sign out clears the device; delete account removes the account, nick and data.
+- Rating (beta): multiplayer Elo from private-room races (start 1500, K 32, pairwise vs every other driver; retiring counts as finishing behind everyone). Licence: Rookie for the first 3 rated races, then D/C/B/A by rating. Computed on each phone for now.
+
+Firebase console setup for accounts: Authentication → Sign-in method → enable **Email/Password** and **Google**; Authentication → Settings → Authorized domains → add the Netlify domain. Publish `database.rules.json` again after it changes.
 
 ## Install on a phone (PWA)
 
@@ -61,5 +71,6 @@ npm run lint
 - `src/app/room/[code].tsx` – private room: lobby, live race with standings, results.
 - `src/net/` – Firebase client and the rooms API. `database.rules.json` holds the database rules.
 - `src/components/` – shared UI: tab bar and icons, flags, wordmark, cards.
-- `src/store/` – app state (Zustand): records, practice setup and recent sessions, in memory for now.
+- `src/store/` – app state (Zustand), saved on the device: records, practice setup and history, career (races, rating), profile.
+- `src/net/account.ts` – sign-in, unique nicks, cloud sync of the stores (`users/{uid}/data` private, `users/{uid}/profile` public).
 - `src/theme.ts` – colors and fonts from the design tokens.

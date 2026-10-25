@@ -7,7 +7,10 @@ import { Board, StartLights } from '@/components/board';
 import { FlagBanner, type FlagKind } from '@/components/flag';
 import {
   applyTap,
-  computeStandings,
+  describeLength,
+  formatClock,
+  raceStandings,
+  roomLength,
   createLap,
   formatDelta,
   formatLapTime,
@@ -36,6 +39,8 @@ import {
   watchRoom,
   type Room,
 } from '@/net/rooms';
+import { buildRaceRecord } from '@/net/race-record';
+import { useCareer } from '@/store/career';
 import { colors, fonts, label, tabular } from '@/theme';
 
 const YELLOW_FLAG_MS = 2000;
@@ -79,7 +84,7 @@ function RulesLine({ rules }: { rules: RoomRules }) {
   const track = getTrack(rules.track)!;
   return (
     <Text style={styles.body}>
-      {trackLabel(track)} · {MODE_SHORT[rules.mode]} · {rules.laps} {rules.laps === 1 ? 'lap' : 'laps'} · +
+      {trackLabel(track)} · {MODE_SHORT[rules.mode]} · {describeLength(roomLength(rules))} · +
       {rules.penaltyMs / 1000} s per wrong tap
     </Text>
   );
@@ -241,8 +246,16 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
 
   // Standings use the server data for everyone, with this driver's own taps applied right away.
   const drivers = driversOf(room).map((d) => (d.id === uid ? { ...d, crossings: driving.crossings } : d));
-  const standings = computeStandings(drivers, numbersPerLap, rules.laps, started ? raceReal : undefined);
+  const length = roomLength(rules);
+  const { standings, flagTime } = raceStandings(
+    drivers,
+    numbersPerLap,
+    length,
+    started ? raceReal : undefined,
+  );
   const me = standings.find((s) => s.id === uid)!;
+  // Timed races: this driver may be finished by the leader's flag even before their own check below.
+  const done = driving.finished || me.finished;
   const active = standings.filter((s) => !s.retired);
   const allDone = active.length > 0 && active.every((s) => s.finished);
 
@@ -271,7 +284,12 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
       reportCrossing(code, uid, index, crossing).catch(() => {});
     }
     if (outcome.result === 'finished') {
-      const lastLap = d.lapIndex + 1 >= rules.laps;
+      // Lap race: the set number of laps. Timed race: this lap ended after the chequered flag.
+      const withMine = driversOf(room).map((x) => (x.id === uid ? { ...x, crossings: next.crossings } : x));
+      const lastLap =
+        length.kind === 'laps'
+          ? d.lapIndex + 1 >= rules.laps
+          : !!raceStandings(withMine, numbersPerLap, length).standings.find((s) => s.id === uid)?.finished;
       next = lastLap
         ? { ...next, finished: true }
         : {
@@ -288,23 +306,41 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
     setDriving(next);
   };
 
+  // Once everyone still racing has finished, this driver's race goes into their career (with Elo).
+  const addRace = useCareer((state) => state.addRace);
+  const raceId = `${code}:${room.startAt ?? 0}`;
+  const savedRace = useCareer((state) => state.history.find((r) => r.id === raceId));
+  const rating = useCareer((state) => state.rating);
+  const raceClosed = done && (allDone || room.status === 'finished');
+  useEffect(() => {
+    if (raceClosed) addRace(buildRaceRecord(code, room, uid, standings));
+  }, [raceClosed, room, code, uid, standings, addRace]);
+
   const leave = async () => {
+    // Leaving mid-race counts as a retirement.
+    if (room.status === 'racing' && !done) addRace(buildRaceRecord(code, room, uid, standings, true));
     await leaveRoom(code, uid, room).catch(() => {});
     router.back();
   };
 
   const mistakes = driving.prevMistakes + driving.lap.mistakes;
-  const raceTime = driving.finished
-    ? (driving.crossings.at(-1) ?? 0)
+  const raceTime = done
+    ? (me.totalMs ?? driving.crossings.at(-1) ?? 0)
     : Math.max(0, raceReal) + driving.prevPenaltyMs + penaltyMs(driving.lap);
-  const lapNumber = Math.min(driving.lapIndex + 1, rules.laps);
+  const lapNumber =
+    length.kind === 'laps' ? Math.min(driving.lapIndex + 1, rules.laps) : driving.lapIndex + 1;
+  const timeUp = length.kind === 'time' && raceTime >= length.ms;
+  const lapText =
+    length.kind === 'laps'
+      ? `Lap ${lapNumber} / ${rules.laps}`
+      : `Lap ${lapNumber} · ${timeUp ? (flagTime !== null ? 'Last lap' : 'Time up') : `${formatClock(length.ms - raceTime)} left`}`;
 
   let flag: FlagKind | null = null;
-  if (driving.finished) flag = 'chequered';
+  if (done) flag = 'chequered';
   else if (yellowAt !== null) flag = 'yellow';
-  else if (lapNumber === rules.laps) flag = 'white';
+  else if (length.kind === 'laps' ? lapNumber === rules.laps : timeUp || flagTime !== null) flag = 'white';
 
-  if (driving.finished || me.retired) {
+  if (done || me.retired) {
     return (
       <Results
         code={code}
@@ -313,6 +349,7 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
         standings={standings}
         numbersPerLap={numbersPerLap}
         allDone={allDone}
+        rating={savedRace ? { value: rating, change: savedRace.ratingDelta } : null}
         onLeave={leave}
       />
     );
@@ -338,7 +375,7 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
             <Text style={styles.exit}>‹ Retire</Text>
           </Pressable>
           <Text style={label}>
-            Lap {lapNumber} / {rules.laps} · {trackLabel(track)}
+            {lapText} · {trackLabel(track)}
           </Text>
         </View>
 
@@ -381,7 +418,12 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
           <StartLights size={track.size} lit={lit} green={green} text={lightsText} />
         )}
 
-        <LiveTable standings={standings} uid={uid} numbersPerLap={numbersPerLap} laps={rules.laps} />
+        <LiveTable
+          standings={standings}
+          uid={uid}
+          numbersPerLap={numbersPerLap}
+          laps={length.kind === 'laps' ? rules.laps : null}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -400,10 +442,10 @@ function Gap({ title, value }: { title: string; value: number | null | string })
   );
 }
 
-function progressText(s: Standing, numbersPerLap: number, laps: number): string {
+function progressText(s: Standing, numbersPerLap: number, laps: number | null): string {
   if (s.retired) return 'Retired';
   if (s.finished) return 'Finished';
-  return `L${s.lap}/${laps} · ${s.cleared % numbersPerLap}/${numbersPerLap}`;
+  return `L${s.lap}${laps === null ? '' : `/${laps}`} · ${s.cleared % numbersPerLap}/${numbersPerLap}`;
 }
 
 function LiveTable({
@@ -415,7 +457,7 @@ function LiveTable({
   standings: Standing[];
   uid: string;
   numbersPerLap: number;
-  laps: number;
+  laps: number | null;
 }) {
   return (
     <View style={[styles.list, styles.liveTable]} accessibilityLabel="Live standings">
@@ -442,6 +484,7 @@ function Results({
   standings,
   numbersPerLap,
   allDone,
+  rating,
   onLeave,
 }: {
   code: string;
@@ -450,6 +493,7 @@ function Results({
   standings: Standing[];
   numbersPerLap: number;
   allDone: boolean;
+  rating: { value: number; change: number } | null;
   onLeave: () => void;
 }) {
   const drivers = driversOf(room);
@@ -467,7 +511,7 @@ function Results({
       <ScrollView contentContainerStyle={styles.content}>
         <FlagBanner flag={allDone ? 'chequered' : me.retired ? null : 'chequered'} />
         <Text style={[label, styles.resultsMeta]}>
-          Room {code} · {trackLabel(getTrack(room.rules.track)!)} · {room.rules.laps} laps
+          Room {code} · {trackLabel(getTrack(room.rules.track)!)} · {describeLength(roomLength(room.rules))}
         </Text>
         <Text style={styles.title}>
           {me.retired
@@ -486,7 +530,11 @@ function Results({
           </View>
           {standings.map((s) => {
             const best = bestById.get(s.id) ?? null;
-            const gap = s.finished && winner && s.id !== winner.id ? s.totalMs! - winner.totalMs! : null;
+            const gap =
+              s.finished && winner && s.id !== winner.id && s.lapsDown === 0
+                ? s.totalMs! - winner.totalMs!
+                : null;
+            const behind = s.lapsDown > 0 ? `+${s.lapsDown} ${s.lapsDown === 1 ? 'lap' : 'laps'}` : null;
             return (
               <View key={s.id} style={[styles.resultRow, styles.rowBorder, s.id === uid && styles.meRow]}>
                 <Text style={[styles.resPos, tabular]}>{s.retired ? 'DNF' : `P${s.position}`}</Text>
@@ -503,7 +551,8 @@ function Results({
                     {s.finished ? formatLapTime(s.totalMs!) : s.retired ? '—' : `L${s.lap}`}
                   </Text>
                   <Text style={[styles.resMeta, tabular]}>
-                    {gap !== null ? formatDelta(gap) : s.finished ? 'Winner' : s.retired ? '' : 'racing'}
+                    {behind ??
+                      (gap !== null ? formatDelta(gap) : s.finished ? 'Winner' : s.retired ? '' : 'racing')}
                   </Text>
                 </View>
                 <Text
@@ -527,10 +576,23 @@ function Results({
             <MyStat title="Best lap" value={myLaps.length ? formatLapTime(Math.min(...myLaps)) : '—'} />
             <MyStat title="Accuracy" value={`${Math.round(accuracy * 100)}%`} />
             <MyStat title="Mistakes" value={String(me.mistakes)} />
+            <MyStat
+              title="Rating"
+              value={rating ? `${Math.round(rating.value)}` : '…'}
+              note={
+                rating
+                  ? `${rating.change >= 0 ? '+' : '−'}${Math.abs(rating.change)} · beta`
+                  : 'after the finish'
+              }
+              noteColor={rating ? (rating.change >= 0 ? colors.green : colors.red) : colors.muted}
+            />
           </View>
           {myLaps.length > 0 && (
             <Text style={[styles.body, tabular]}>
-              {myLaps.map((ms, i) => `L${i + 1} ${formatLapTime(ms)}`).join('   ')}
+              {myLaps.length <= 10
+                ? // Non-breaking spaces keep each "L3 00:01.44" on one line.
+                  myLaps.map((ms, i) => `L${i + 1}\u00A0${formatLapTime(ms)}`).join('   ')
+                : `${myLaps.length} laps · average ${formatLapTime(myLaps.reduce((a, b) => a + b, 0) / myLaps.length)}`}
             </Text>
           )}
         </View>
@@ -552,11 +614,22 @@ function Results({
   );
 }
 
-function MyStat({ title, value }: { title: string; value: string }) {
+function MyStat({
+  title,
+  value,
+  note,
+  noteColor = colors.muted,
+}: {
+  title: string;
+  value: string;
+  note?: string;
+  noteColor?: string;
+}) {
   return (
     <View style={styles.gap}>
       <Text style={[label, styles.small]}>{title}</Text>
       <Text style={[styles.gapValue, tabular, { color: colors.text }]}>{value}</Text>
+      {note && <Text style={[styles.resMeta, tabular, { color: noteColor }]}>{note}</Text>}
     </View>
   );
 }

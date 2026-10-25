@@ -6,8 +6,10 @@ import { Card, Screen, SectionLabel, ui } from '@/components/ui';
 import {
   DEFAULT_RULES,
   MAX_LAPS,
+  MAX_MINUTES,
   MAX_PLAYERS,
   MIN_LAPS,
+  MIN_MINUTES,
   MIN_PLAYERS,
   MODES,
   NICK_MAX_LENGTH,
@@ -20,6 +22,7 @@ import {
 } from '@/game';
 import { MODE_SHORT } from '@/labels';
 import { firebaseConfigured } from '@/net/firebase';
+import { useAccount } from '@/net/account';
 import { createRoom, joinRoom, RoomError } from '@/net/rooms';
 import { useProfile } from '@/store/profile';
 import { colors, fonts, label } from '@/theme';
@@ -27,6 +30,8 @@ import { colors, fonts, label } from '@/theme';
 export default function Rooms() {
   const nick = useProfile((state) => state.nick);
   const setNick = useProfile((state) => state.setNick);
+  // With an account the unique account nick is used; guests type any nick.
+  const accountNick = useAccount((state) => !state.isGuest && !state.needsNick);
   const [rules, setRules] = useState<RoomRules>(DEFAULT_RULES);
   const [codeText, setCodeText] = useState('');
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
@@ -80,16 +85,23 @@ export default function Rooms() {
       </Text>
 
       <SectionLabel>Your nick</SectionLabel>
-      <TextInput
-        value={nick}
-        onChangeText={setNick}
-        placeholder="e.g. Max"
-        placeholderTextColor={colors.muted}
-        maxLength={NICK_MAX_LENGTH}
-        autoCorrect={false}
-        accessibilityLabel="Your nick"
-        style={[styles.input, !validNick && nick.length > 0 && styles.inputInvalid]}
-      />
+      {accountNick ? (
+        <View style={[styles.input, styles.accountNick]}>
+          <Text style={styles.accountNickText}>{nick}</Text>
+          <Text style={styles.accountNickNote}>from your account</Text>
+        </View>
+      ) : (
+        <TextInput
+          value={nick}
+          onChangeText={setNick}
+          placeholder="e.g. Max"
+          placeholderTextColor={colors.muted}
+          maxLength={NICK_MAX_LENGTH}
+          autoCorrect={false}
+          accessibilityLabel="Your nick"
+          style={[styles.input, !validNick && nick.length > 0 && styles.inputInvalid]}
+        />
+      )}
 
       <SectionLabel>Join a room</SectionLabel>
       <View style={styles.joinRow}>
@@ -145,14 +157,44 @@ export default function Rooms() {
           ))}
         </View>
 
-        <View style={styles.steppers}>
-          <Stepper
-            title="Laps"
-            value={rules.laps}
-            min={MIN_LAPS}
-            max={MAX_LAPS}
-            onChange={(laps) => change({ laps })}
+        <Text style={[label, styles.small]}>Race length</Text>
+        <View style={styles.chips}>
+          <Chip
+            text="Laps"
+            selected={rules.lengthKind !== 'time'}
+            onPress={() => change({ lengthKind: 'laps' })}
           />
+          <Chip
+            text="Time"
+            selected={rules.lengthKind === 'time'}
+            onPress={() => change({ lengthKind: 'time' })}
+          />
+        </View>
+        {rules.lengthKind === 'time' && (
+          <Text style={styles.lengthNote}>
+            When time is up, the leader finishes their lap and takes the flag. Everyone else finishes the lap
+            they are on.
+          </Text>
+        )}
+
+        <View style={styles.steppers}>
+          {rules.lengthKind === 'time' ? (
+            <Stepper
+              title="Minutes"
+              value={rules.minutes}
+              min={MIN_MINUTES}
+              max={MAX_MINUTES}
+              onChange={(minutes) => change({ minutes })}
+            />
+          ) : (
+            <Stepper
+              title="Laps"
+              value={rules.laps}
+              min={MIN_LAPS}
+              max={MAX_LAPS}
+              onChange={(laps) => change({ laps })}
+            />
+          )}
           <Stepper
             title="Max drivers"
             value={rules.maxPlayers}
@@ -278,6 +320,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   inputInvalid: { borderColor: colors.red },
+  accountNick: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  accountNickText: { fontFamily: fonts.bodySemi, fontSize: 16, color: colors.text },
+  accountNickNote: { fontFamily: fonts.body, fontSize: 12, color: colors.muted },
   joinRow: { flexDirection: 'row', gap: 10 },
   codeInput: { flex: 1, minWidth: 0, fontFamily: fonts.heading, fontSize: 24, letterSpacing: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -294,6 +339,7 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: fonts.heading, fontSize: 18, color: colors.muted },
   chipTextSelected: { color: colors.text },
   chipSub: { fontFamily: fonts.body, fontSize: 11, color: colors.muted },
+  lengthNote: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.muted },
   steppers: { flexDirection: 'row', gap: 16 },
   stepper: { flex: 1, gap: 6 },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

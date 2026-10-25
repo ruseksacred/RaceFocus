@@ -56,3 +56,9 @@ export function formatDelta(ms: number): string {
 function pad(n: number): string {
   return n.toString().padStart(2, '0');
 }
+
+/** "4:05": minutes and seconds left, rounded up so 0:00 only shows when time is really up. */
+export function formatClock(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}

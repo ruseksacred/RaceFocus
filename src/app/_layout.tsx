@@ -6,9 +6,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { startAccountSync } from '@/net/account';
 import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
+startAccountSync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
