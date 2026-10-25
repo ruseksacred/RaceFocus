@@ -20,14 +20,16 @@ import {
   TRACKS,
   type RoomRules,
 } from '@/game';
-import { MODE_SHORT } from '@/labels';
+import { describeError, useMessages } from '@/i18n';
+import { seconds } from '@/labels';
 import { firebaseConfigured } from '@/net/firebase';
 import { useAccount } from '@/net/account';
-import { createRoom, joinRoom, RoomError } from '@/net/rooms';
+import { createRoom, joinRoom } from '@/net/rooms';
 import { useProfile } from '@/store/profile';
 import { colors, fonts, label } from '@/theme';
 
 export default function Rooms() {
+  const m = useMessages();
   const nick = useProfile((state) => state.nick);
   const setNick = useProfile((state) => state.setNick);
   // With an account the unique account nick is used; guests type any nick.
@@ -50,11 +52,7 @@ export default function Rooms() {
       if (kind === 'join') await joinRoom(roomCode, validNick);
       router.push({ pathname: '/room/[code]', params: { code: roomCode } });
     } catch (e) {
-      setError(
-        e instanceof RoomError
-          ? e.message
-          : 'No connection to the race server. Check your internet and try again.',
-      );
+      setError(describeError(m, e, 'noServer'));
     } finally {
       setBusy(null);
     }
@@ -63,14 +61,11 @@ export default function Rooms() {
   if (!firebaseConfigured) {
     return (
       <Screen>
-        <Text style={label}>Race</Text>
-        <Text style={ui.title}>Private rooms</Text>
+        <Text style={label}>{m.rooms.label}</Text>
+        <Text style={ui.title}>{m.rooms.title}</Text>
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>Race server not set up</Text>
-          <Text style={ui.body}>
-            Private rooms need Firebase. Add your project config to a .env file (see .env.example), or run the
-            local emulators with npm run emulators and set EXPO_PUBLIC_FIREBASE_EMULATOR_HOST.
-          </Text>
+          <Text style={styles.cardTitle}>{m.rooms.notSetUpTitle}</Text>
+          <Text style={ui.body}>{m.rooms.notSetUp}</Text>
         </Card>
       </Screen>
     );
@@ -78,42 +73,40 @@ export default function Rooms() {
 
   return (
     <Screen>
-      <Text style={label}>Race</Text>
-      <Text style={ui.title}>Private rooms</Text>
-      <Text style={[ui.body, styles.intro]}>
-        Race friends live on the same boards. Create a room, share the code, start when everyone is in.
-      </Text>
+      <Text style={label}>{m.rooms.label}</Text>
+      <Text style={ui.title}>{m.rooms.title}</Text>
+      <Text style={[ui.body, styles.intro]}>{m.rooms.intro}</Text>
 
-      <SectionLabel>Your nick</SectionLabel>
+      <SectionLabel>{m.rooms.yourNick}</SectionLabel>
       {accountNick ? (
         <View style={[styles.input, styles.accountNick]}>
           <Text style={styles.accountNickText}>{nick}</Text>
-          <Text style={styles.accountNickNote}>from your account</Text>
+          <Text style={styles.accountNickNote}>{m.rooms.fromAccount}</Text>
         </View>
       ) : (
         <TextInput
           value={nick}
           onChangeText={setNick}
-          placeholder="e.g. Max"
+          placeholder={m.common.nickPlaceholder}
           placeholderTextColor={colors.muted}
           maxLength={NICK_MAX_LENGTH}
           autoCorrect={false}
-          accessibilityLabel="Your nick"
+          accessibilityLabel={m.rooms.yourNick}
           style={[styles.input, !validNick && nick.length > 0 && styles.inputInvalid]}
         />
       )}
 
-      <SectionLabel>Join a room</SectionLabel>
+      <SectionLabel>{m.rooms.joinRoom}</SectionLabel>
       <View style={styles.joinRow}>
         <TextInput
           value={codeText}
           onChangeText={(t) => setCodeText(t.toUpperCase())}
-          placeholder="CODE"
+          placeholder={m.rooms.codePlaceholder}
           placeholderTextColor={colors.muted}
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={ROOM_CODE_LENGTH + 2}
-          accessibilityLabel="Room code"
+          accessibilityLabel={m.rooms.roomCode}
           style={[styles.input, styles.codeInput]}
         />
         <Pressable
@@ -125,14 +118,14 @@ export default function Rooms() {
           {busy === 'join' ? (
             <ActivityIndicator color={colors.text} />
           ) : (
-            <Text style={styles.secondaryText}>Join</Text>
+            <Text style={styles.secondaryText}>{m.rooms.join}</Text>
           )}
         </Pressable>
       </View>
 
-      <SectionLabel>Create a room</SectionLabel>
+      <SectionLabel>{m.rooms.createRoom}</SectionLabel>
       <Card style={styles.card}>
-        <Text style={[label, styles.small]}>Track</Text>
+        <Text style={[label, styles.small]}>{m.rooms.track}</Text>
         <View style={styles.chips}>
           {TRACKS.map((t) => (
             <Chip
@@ -145,42 +138,39 @@ export default function Rooms() {
           ))}
         </View>
 
-        <Text style={[label, styles.small]}>Mode</Text>
+        <Text style={[label, styles.small]}>{m.rooms.mode}</Text>
         <View style={styles.chips}>
-          {MODES.map((m) => (
+          {MODES.map((mode) => (
             <Chip
-              key={m}
-              text={MODE_SHORT[m]}
-              selected={rules.mode === m}
-              onPress={() => change({ mode: m })}
+              key={mode}
+              text={m.modesShort[mode]}
+              selected={rules.mode === mode}
+              onPress={() => change({ mode })}
             />
           ))}
         </View>
 
-        <Text style={[label, styles.small]}>Race length</Text>
+        <Text style={[label, styles.small]}>{m.rooms.raceLength}</Text>
         <View style={styles.chips}>
           <Chip
-            text="Laps"
+            text={m.rooms.lengthLaps}
             selected={rules.lengthKind !== 'time'}
             onPress={() => change({ lengthKind: 'laps' })}
           />
           <Chip
-            text="Time"
+            text={m.rooms.lengthTime}
             selected={rules.lengthKind === 'time'}
             onPress={() => change({ lengthKind: 'time' })}
           />
         </View>
         {rules.lengthKind === 'time' && (
-          <Text style={styles.lengthNote}>
-            When time is up, the leader finishes their lap and takes the flag. Everyone else finishes the lap
-            they are on.
-          </Text>
+          <Text style={styles.lengthNote}>{m.rooms.timedNote}</Text>
         )}
 
         <View style={styles.steppers}>
           {rules.lengthKind === 'time' ? (
             <Stepper
-              title="Minutes"
+              title={m.rooms.minutes}
               value={rules.minutes}
               min={MIN_MINUTES}
               max={MAX_MINUTES}
@@ -188,7 +178,7 @@ export default function Rooms() {
             />
           ) : (
             <Stepper
-              title="Laps"
+              title={m.rooms.laps}
               value={rules.laps}
               min={MIN_LAPS}
               max={MAX_LAPS}
@@ -196,7 +186,7 @@ export default function Rooms() {
             />
           )}
           <Stepper
-            title="Max drivers"
+            title={m.rooms.maxDrivers}
             value={rules.maxPlayers}
             min={MIN_PLAYERS}
             max={MAX_PLAYERS}
@@ -204,12 +194,12 @@ export default function Rooms() {
           />
         </View>
 
-        <Text style={[label, styles.small]}>Penalty per wrong tap</Text>
+        <Text style={[label, styles.small]}>{m.rooms.penalty}</Text>
         <View style={styles.chips}>
           {PENALTY_OPTIONS_MS.map((ms) => (
             <Chip
               key={ms}
-              text={`+${ms / 1000} s`}
+              text={`+${seconds(ms)} s`}
               selected={rules.penaltyMs === ms}
               onPress={() => change({ penaltyMs: ms })}
             />
@@ -225,12 +215,12 @@ export default function Rooms() {
           {busy === 'create' ? (
             <ActivityIndicator color={colors.white} />
           ) : (
-            <Text style={styles.primaryText}>CREATE ROOM</Text>
+            <Text style={styles.primaryText}>{m.rooms.create}</Text>
           )}
         </Pressable>
       </Card>
 
-      {!validNick && <Text style={styles.hint}>Enter a nick to create or join a room.</Text>}
+      {!validNick && <Text style={styles.hint}>{m.rooms.enterNick}</Text>}
       {error && (
         <Text style={styles.error} accessibilityRole="alert">
           {error}
@@ -277,6 +267,7 @@ function Stepper({
   max: number;
   onChange: (value: number) => void;
 }) {
+  const m = useMessages();
   return (
     <View style={styles.stepper}>
       <Text style={[label, styles.small]}>{title}</Text>
@@ -284,7 +275,7 @@ function Stepper({
         <Pressable
           onPress={() => onChange(Math.max(min, value - 1))}
           accessibilityRole="button"
-          accessibilityLabel={`${title}: fewer`}
+          accessibilityLabel={m.rooms.fewer(title)}
           style={styles.stepButton}>
           <Text style={styles.stepText}>−</Text>
         </Pressable>
@@ -294,7 +285,7 @@ function Stepper({
         <Pressable
           onPress={() => onChange(Math.min(max, value + 1))}
           accessibilityRole="button"
-          accessibilityLabel={`${title}: more`}
+          accessibilityLabel={m.rooms.more(title)}
           style={styles.stepButton}>
           <Text style={styles.stepText}>+</Text>
         </Pressable>

@@ -25,6 +25,11 @@ Rooms use the Firebase project `racefocus-b709c` (Realtime Database in europe-we
 
 To try rooms without a project, run `npm run emulators` (needs Java) and put `EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=localhost` in `.env` (your computer's LAN IP when testing on a phone).
 
+## Invite links and languages
+
+- In a room lobby, **Invite drivers** opens the share sheet (or copies the link) with `…/join/CODE`. The link opens a join screen: type a nick, tap **Join race**.
+- The app speaks English and Polish. It follows the phone language; change it in **Profile → Settings**. Texts are in `src/i18n/`.
+
 ## Accounts
 
 - Play as a guest (data on the device) or create an account in **Profile**: e-mail and password, or Google (web).

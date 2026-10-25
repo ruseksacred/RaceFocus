@@ -2,7 +2,8 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Card, Screen, SectionLabel, ui } from '@/components/ui';
 import { formatLapTime, getTrack, licenceFor, MODES, trackLabel, TRACKS } from '@/game';
-import { formatWhen, MODE_SHORT } from '@/labels';
+import { useLanguage, useMessages } from '@/i18n';
+import { formatWhen } from '@/labels';
 import { useAccount } from '@/net/account';
 import { useCareer } from '@/store/career';
 import { usePractice } from '@/store/practice';
@@ -10,6 +11,8 @@ import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
 
 export default function Stats() {
+  const m = useMessages();
+  const language = useLanguage();
   const isGuest = useAccount((state) => state.isGuest);
   const totals = usePractice((state) => state.totals);
   const bestLaps = useRecords((state) => state.bestLaps);
@@ -18,28 +21,26 @@ export default function Stats() {
 
   return (
     <Screen>
-      <Text style={label}>Stats</Text>
-      <Text style={ui.title}>Your driving</Text>
+      <Text style={label}>{m.stats.label}</Text>
+      <Text style={ui.title}>{m.stats.title}</Text>
       <Text style={[ui.body, styles.intro]}>
-        {isGuest
-          ? 'Saved on this device. Create an account in Profile to keep it in the cloud.'
-          : 'Saved to your account.'}
+        {isGuest ? m.stats.guestNote : m.stats.accountNote}
       </Text>
 
-      <SectionLabel right={<Text style={styles.beta}>β beta</Text>}>Races in rooms</SectionLabel>
+      <SectionLabel right={<Text style={styles.beta}>{m.stats.beta}</Text>}>{m.stats.roomRaces}</SectionLabel>
       <Card style={styles.grid}>
-        <Number title="Rating" value={String(Math.round(career.rating))} />
-        <Number title="Licence" value={licenceFor(career.rating, career.ratedRaces)} />
-        <Number title="Races" value={String(career.races)} />
+        <Number title={m.stats.rating} value={String(Math.round(career.rating))} />
+        <Number title={m.stats.licence} value={licenceFor(career.rating, career.ratedRaces)} />
+        <Number title={m.stats.races} value={String(career.races)} />
         <Number
-          title="Wins"
+          title={m.stats.wins}
           value={String(career.wins)}
           color={career.wins > 0 ? colors.green : colors.text}
         />
-        <Number title="Podiums" value={String(career.podiums)} />
-        <Number title="Win rate" value={`${winRate}%`} />
+        <Number title={m.stats.podiums} value={String(career.podiums)} />
+        <Number title={m.stats.winRate} value={`${winRate}%`} />
         <Number
-          title="DNF"
+          title={m.stats.dnf}
           value={String(career.dnfs)}
           color={career.dnfs > 0 ? colors.yellow : colors.text}
         />
@@ -57,12 +58,11 @@ export default function Stats() {
                 </Text>
                 <View style={styles.rowText}>
                   <Text style={styles.rowTitle}>
-                    {trackLabel(track)} · {race.laps} {race.laps === 1 ? 'lap' : 'laps'} · {race.drivers}{' '}
-                    drivers
+                    {m.stats.raceRow(trackLabel(track), race.laps, race.drivers)}
                   </Text>
                   <Text style={styles.rowMeta}>
-                    {formatWhen(race.finishedAt)}
-                    {race.bestLapMs !== null ? ` · best ${formatLapTime(race.bestLapMs)}` : ''}
+                    {formatWhen(m, language, race.finishedAt)}
+                    {race.bestLapMs !== null ? m.stats.best(formatLapTime(race.bestLapMs)) : ''}
                   </Text>
                 </View>
                 <Text style={[styles.delta, tabular, { color: delta >= 0 ? colors.green : colors.red }]}>
@@ -75,35 +75,35 @@ export default function Stats() {
         </Card>
       )}
 
-      <SectionLabel>Solo practice</SectionLabel>
+      <SectionLabel>{m.stats.solo}</SectionLabel>
       <Card style={styles.grid}>
-        <Number title="Sessions" value={String(totals.sessions)} />
-        <Number title="Laps" value={String(totals.laps)} />
+        <Number title={m.stats.sessions} value={String(totals.sessions)} />
+        <Number title={m.stats.laps} value={String(totals.laps)} />
         <Number
-          title="Mistakes"
+          title={m.stats.mistakes}
           value={String(totals.mistakes)}
           color={totals.mistakes > 0 ? colors.yellow : colors.text}
         />
       </Card>
 
-      <SectionLabel>Best laps</SectionLabel>
+      <SectionLabel>{m.stats.bestLaps}</SectionLabel>
       <Card style={styles.list}>
         <View style={[styles.row, styles.head]}>
-          <Text style={[styles.headText, styles.trackCol]}>Track</Text>
-          {MODES.map((m) => (
-            <Text key={m} style={[styles.headText, styles.timeCol]}>
-              {MODE_SHORT[m]}
+          <Text style={[styles.headText, styles.trackCol]}>{m.stats.track}</Text>
+          {MODES.map((mode) => (
+            <Text key={mode} style={[styles.headText, styles.timeCol]}>
+              {m.modesShort[mode]}
             </Text>
           ))}
         </View>
         {TRACKS.map((t) => (
           <View key={t.id} style={[styles.row, styles.rowBorder]}>
             <Text style={[styles.rowTitle, styles.trackCol]}>{trackLabel(t)}</Text>
-            {MODES.map((m) => {
-              const best = bestLaps[recordKey(t.id, m)]?.ms;
+            {MODES.map((mode) => {
+              const best = bestLaps[recordKey(t.id, mode)]?.ms;
               return (
                 <Text
-                  key={m}
+                  key={mode}
                   style={[styles.time, tabular, styles.timeCol, best === undefined && styles.empty]}>
                   {best === undefined ? '—' : formatLapTime(best)}
                 </Text>
@@ -113,9 +113,9 @@ export default function Stats() {
         ))}
       </Card>
 
-      <SectionLabel>Coming next</SectionLabel>
+      <SectionLabel>{m.stats.comingNext}</SectionLabel>
       <Card style={styles.soon}>
-        {['Lap-time trend per track', 'Consistency', 'Heat map of where you lose time'].map((item) => (
+        {m.stats.soon.map((item) => (
           <Text key={item} style={styles.soonItem}>
             · {item}
           </Text>

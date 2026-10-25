@@ -18,10 +18,11 @@ import {
 } from '@/game';
 import { usePractice } from '@/store/practice';
 import { recordKey, useRecords } from '@/store/records';
-import { MODE_LABELS } from '@/labels';
+import { useMessages } from '@/i18n';
 import { colors, fonts, label, tabular } from '@/theme';
 
 export default function Practice() {
+  const m = useMessages();
   const setup = usePractice((state) => state.setup);
   const updateSetup = usePractice((state) => state.updateSetup);
   const bestLaps = useRecords((state) => state.bestLaps);
@@ -50,17 +51,17 @@ export default function Practice() {
     const current = value ?? (timed ? setup.minutes : setup.laps);
     changeValue(String(Math.min(max, Math.max(min, current + by))));
   };
-  const unit = timed ? 'min' : value === 1 ? 'lap' : 'laps';
+  const unit = timed ? m.practice.unitMin : m.practice.unitLaps(value ?? 0);
 
   const track = getTrack(setup.track)!;
   const best = bestLaps[recordKey(setup.track, setup.mode)]?.ms;
 
   return (
     <Screen>
-      <Text style={label}>Practice</Text>
-      <Text style={styles.title}>Solo session</Text>
+      <Text style={label}>{m.practice.label}</Text>
+      <Text style={styles.title}>{m.practice.title}</Text>
 
-      <SectionLabel>Track</SectionLabel>
+      <SectionLabel>{m.practice.track}</SectionLabel>
       <View style={styles.tracks} accessibilityRole="radiogroup">
         {TRACKS.map((t) => {
           const selected = t.id === setup.track;
@@ -71,41 +72,41 @@ export default function Practice() {
               onPress={() => updateSetup({ track: t.id })}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
-              accessibilityLabel={`${t.name}, ${t.size} by ${t.size}`}
+              accessibilityLabel={m.practice.trackA11y(t.name, t.size)}
               style={[styles.trackRow, selected && styles.trackRowSelected]}>
               <Text style={styles.trackSize}>
                 {t.size}×{t.size}
               </Text>
               <View style={styles.trackText}>
                 <Text style={styles.trackName}>{t.name}</Text>
-                <Text style={styles.trackMeta}>{t.size * t.size} numbers</Text>
+                <Text style={styles.trackMeta}>{m.practice.numbers(t.size * t.size)}</Text>
               </View>
               <Text style={[styles.trackBest, tabular, pb === undefined && styles.muted]}>
-                {pb === undefined ? 'no lap yet' : formatLapTime(pb)}
+                {pb === undefined ? m.practice.noLapYet : formatLapTime(pb)}
               </Text>
             </Pressable>
           );
         })}
       </View>
 
-      <SectionLabel>Mode</SectionLabel>
+      <SectionLabel>{m.practice.mode}</SectionLabel>
       <View style={styles.modes} accessibilityRole="radiogroup">
-        {MODES.map((m) => {
-          const selected = m === setup.mode;
+        {MODES.map((mode) => {
+          const selected = mode === setup.mode;
           return (
             <Pressable
-              key={m}
-              onPress={() => updateSetup({ mode: m })}
+              key={mode}
+              onPress={() => updateSetup({ mode })}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
               style={[styles.modeButton, selected && styles.modeButtonSelected]}>
-              <Text style={[styles.modeText, selected && styles.modeTextSelected]}>{MODE_LABELS[m]}</Text>
+              <Text style={[styles.modeText, selected && styles.modeTextSelected]}>{m.modes[mode]}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      <SectionLabel>Race length</SectionLabel>
+      <SectionLabel>{m.practice.raceLength}</SectionLabel>
       <View style={styles.modes} accessibilityRole="radiogroup">
         {(['laps', 'time'] as const).map((kind) => {
           const selected = kind === setup.lengthKind;
@@ -117,14 +118,14 @@ export default function Practice() {
               accessibilityState={{ selected }}
               style={[styles.modeButton, selected && styles.modeButtonSelected]}>
               <Text style={[styles.modeText, selected && styles.modeTextSelected]}>
-                {kind === 'laps' ? 'Laps' : 'Time'}
+                {kind === 'laps' ? m.practice.lengthLaps : m.practice.lengthTime}
               </Text>
             </Pressable>
           );
         })}
       </View>
       <View style={[styles.lapsRow, styles.lengthRow]}>
-        <StepButton text="−" label={timed ? 'One minute less' : 'One lap less'} onPress={() => step(-1)} />
+        <StepButton text="−" label={timed ? m.practice.lessMinute : m.practice.lessLap} onPress={() => step(-1)} />
         <TextInput
           value={timed ? minutesText : lapsText}
           onChangeText={changeValue}
@@ -132,27 +133,25 @@ export default function Practice() {
           inputMode="numeric"
           maxLength={2}
           selectTextOnFocus
-          accessibilityLabel={timed ? 'Race minutes' : 'Number of laps'}
+          accessibilityLabel={timed ? m.practice.minutesA11y : m.practice.lapsA11y}
           style={[styles.lapsInput, value === null && styles.lapsInputInvalid]}
         />
-        <StepButton text="+" label={timed ? 'One minute more' : 'One lap more'} onPress={() => step(1)} />
+        <StepButton text="+" label={timed ? m.practice.moreMinute : m.practice.moreLap} onPress={() => step(1)} />
         <Text style={[styles.lapsHint, value === null && styles.lapsHintInvalid]}>
-          {value === null
-            ? `Enter ${min}–${max} ${timed ? 'minutes' : 'laps'}`
-            : `Type ${min}–${max}\nor use − / +`}
+          {value === null ? m.practice.enterRange(min, max, timed) : m.practice.typeRange(min, max)}
         </Text>
       </View>
-      {timed && <Text style={styles.lengthNote}>When time is up, you finish the lap you are on.</Text>}
+      {timed && <Text style={styles.lengthNote}>{m.practice.timedNote}</Text>}
 
       <Card style={styles.target}>
         <View style={styles.targetText}>
-          <Text style={[label, styles.small]}>{timed ? 'Laps at your best pace' : 'Target race time'}</Text>
+          <Text style={[label, styles.small]}>{timed ? m.practice.lapsAtPace : m.practice.targetTime}</Text>
           <Text style={styles.targetMeta}>
             {best === undefined
-              ? `Set a lap on ${track.name} to get a target`
+              ? m.practice.setLapFirst(track.name)
               : timed
-                ? `${minutes ?? '–'} min ÷ your best lap`
-                : `${laps ?? '–'} ${laps === 1 ? 'lap' : 'laps'} × your best lap`}
+                ? m.practice.minutesOverBest(minutes === null ? '–' : String(minutes))
+                : m.practice.lapsTimesBest(laps === null ? '–' : m.common.laps(laps))}
           </Text>
         </View>
         <Text style={[styles.targetTime, tabular]}>
@@ -178,10 +177,10 @@ export default function Practice() {
         }
         style={({ pressed }) => [styles.start, value === null && styles.disabled, pressed && styles.pressed]}>
         <Text style={styles.startText}>
-          START · {value ?? '–'} {unit.toUpperCase()}
+          {m.practice.start(value === null ? '–' : String(value), unit)}
         </Text>
       </Pressable>
-      <Text style={styles.hint}>Tap the numbers in order as fast as you can. A wrong tap adds 1 second.</Text>
+      <Text style={styles.hint}>{m.practice.hint}</Text>
     </Screen>
   );
 }

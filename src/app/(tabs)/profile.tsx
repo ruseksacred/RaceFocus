@@ -1,7 +1,9 @@
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { Icon } from '@/components/icons';
 import { Card, Screen, SectionLabel, ui } from '@/components/ui';
 import { licenceFor, NICK_MAX_LENGTH } from '@/game';
 import {
@@ -14,6 +16,7 @@ import {
   signOutAccount,
   useAccount,
 } from '@/net/account';
+import { describeError, useMessages } from '@/i18n';
 import { googleSignInAvailable } from '@/net/auth-setup';
 import { firebaseConfigured } from '@/net/firebase';
 import { useCareer } from '@/store/career';
@@ -22,6 +25,7 @@ import { colors, fonts, label, tabular } from '@/theme';
 
 /** Runs an account action with a busy flag, an error message and an optional success note. */
 function useAction() {
+  const m = useMessages();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -33,7 +37,7 @@ function useAction() {
       await action();
       if (success) setNote(success);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Try again.');
+      setError(describeError(m, e));
     } finally {
       setBusy(false);
     }
@@ -42,15 +46,16 @@ function useAction() {
 }
 
 export default function Profile() {
+  const m = useMessages();
   const account = useAccount();
 
   if (!firebaseConfigured) {
     return (
       <Screen>
-        <Text style={label}>Profile</Text>
-        <Text style={ui.title}>Driver</Text>
+        <ProfileTop />
+        <Text style={ui.title}>{m.profile.driver}</Text>
         <Card style={styles.card}>
-          <Text style={ui.body}>Accounts need the race server, which is not set up in this build.</Text>
+          <Text style={ui.body}>{m.profile.notSetUp}</Text>
         </Card>
       </Screen>
     );
@@ -59,6 +64,7 @@ export default function Profile() {
   if (!account.ready) {
     return (
       <Screen>
+        <ProfileTop />
         <ActivityIndicator color={colors.text} style={styles.loading} />
       </Screen>
     );
@@ -69,10 +75,26 @@ export default function Profile() {
   return <AccountProfile />;
 }
 
+/** "Profile" label with the settings button on the right. */
+function ProfileTop() {
+  const m = useMessages();
+  return (
+    <View style={styles.top}>
+      <Text style={label}>{m.profile.label}</Text>
+      <Link href="/settings" asChild>
+        <Pressable accessibilityRole="button" accessibilityLabel={m.profile.settings} hitSlop={12} style={styles.gear}>
+          <Icon name="settings" color={colors.muted} size={22} />
+          <Text style={styles.gearText}>{m.profile.settings}</Text>
+        </Pressable>
+      </Link>
+    </View>
+  );
+}
+
 function Header({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <>
-      <Text style={label}>Profile</Text>
+      <ProfileTop />
       <View style={styles.header}>
         <Avatar size={72} />
         <View style={styles.headerText}>
@@ -171,6 +193,7 @@ function SecondaryButton({ text, onPress, danger }: { text: string; onPress: () 
 }
 
 function GuestProfile() {
+  const m = useMessages();
   const guestNick = useProfile((state) => state.nick);
   const [mode, setMode] = useState<'create' | 'signin'>('create');
   const [nick, setNick] = useState(guestNick);
@@ -180,26 +203,23 @@ function GuestProfile() {
 
   return (
     <Screen>
-      <Header title="Guest driver" subtitle="Records are saved on this device" />
+      <Header title={m.profile.guestTitle} subtitle={m.profile.guestSubtitle} />
 
       <Card style={styles.card}>
-        <Text style={styles.cardTitle}>Save your progress</Text>
-        <Text style={ui.body}>
-          With an account your records, race stats and rating (beta) are kept in the cloud and follow you to
-          any device. Everything you have driven as a guest moves into the new account.
-        </Text>
+        <Text style={styles.cardTitle}>{m.profile.saveProgress}</Text>
+        <Text style={ui.body}>{m.profile.saveProgressBody}</Text>
       </Card>
 
       <View style={styles.tabs} accessibilityRole="tablist">
-        {(['create', 'signin'] as const).map((m) => (
+        {(['create', 'signin'] as const).map((tab) => (
           <Pressable
-            key={m}
-            onPress={() => setMode(m)}
+            key={tab}
+            onPress={() => setMode(tab)}
             accessibilityRole="tab"
-            accessibilityState={{ selected: mode === m }}
-            style={[styles.tab, mode === m && styles.tabActive]}>
-            <Text style={[styles.tabText, mode === m && styles.tabTextActive]}>
-              {m === 'create' ? 'Create account' : 'Sign in'}
+            accessibilityState={{ selected: mode === tab }}
+            style={[styles.tab, mode === tab && styles.tabActive]}>
+            <Text style={[styles.tabText, mode === tab && styles.tabTextActive]}>
+              {mode === 'create' ? m.profile.createAccountTab : m.profile.signInTab}
             </Text>
           </Pressable>
         ))}
@@ -208,23 +228,29 @@ function GuestProfile() {
       <Card style={styles.card}>
         {mode === 'create' && (
           <Field
-            label="Nick"
+            label={m.profile.nick}
             value={nick}
             onChangeText={setNick}
             maxLength={NICK_MAX_LENGTH}
-            placeholder="e.g. Max"
+            placeholder={m.common.nickPlaceholder}
           />
         )}
-        <Field label="E-mail" value={email} onChangeText={setEmail} email placeholder="you@example.com" />
         <Field
-          label="Password"
+          label={m.profile.email}
+          value={email}
+          onChangeText={setEmail}
+          email
+          placeholder={m.profile.emailPlaceholder}
+        />
+        <Field
+          label={m.profile.password}
           value={password}
           onChangeText={setPassword}
           secure
-          placeholder="At least 6 characters"
+          placeholder={m.profile.passwordPlaceholder}
         />
         <PrimaryButton
-          text={mode === 'create' ? 'CREATE ACCOUNT' : 'SIGN IN'}
+          text={mode === 'create' ? m.profile.createAccount : m.profile.signIn}
           busy={busy}
           disabled={!email || !password || (mode === 'create' && !nick.trim())}
           onPress={() =>
@@ -236,13 +262,13 @@ function GuestProfile() {
         {mode === 'signin' && (
           <Pressable
             onPress={() =>
-              run(() => resetPassword(email), `We sent a link to reset your password to ${email.trim()}.`)
+              run(() => resetPassword(email), m.profile.resetSent(email.trim()))
             }
             disabled={!email || busy}
             accessibilityRole="button"
             style={styles.link}>
             <Text style={[styles.linkText, !email && styles.mutedText]}>
-              {email ? 'Forgot password? Send a reset link' : 'Forgot password? Enter your e-mail first'}
+              {email ? m.profile.forgotSend : m.profile.forgotEnterEmail}
             </Text>
           </Pressable>
         )}
@@ -251,8 +277,8 @@ function GuestProfile() {
 
       {googleSignInAvailable && (
         <>
-          <Text style={styles.or}>or</Text>
-          <SecondaryButton text="Continue with Google" onPress={() => run(continueWithGoogle)} />
+          <Text style={styles.or}>{m.profile.or}</Text>
+          <SecondaryButton text={m.profile.google} onPress={() => run(continueWithGoogle)} />
         </>
       )}
     </Screen>
@@ -260,34 +286,36 @@ function GuestProfile() {
 }
 
 function ChooseNick() {
+  const m = useMessages();
   const [nick, setNick] = useState(useProfile.getState().nick);
   const { busy, error, note, run } = useAction();
   return (
     <Screen>
-      <Header title="Almost there" subtitle="Pick the nick other drivers will see" />
+      <Header title={m.profile.almostThere} subtitle={m.profile.pickNick} />
       <Card style={styles.card}>
         <Field
-          label="Nick"
+          label={m.profile.nick}
           value={nick}
           onChangeText={setNick}
           maxLength={NICK_MAX_LENGTH}
-          placeholder="e.g. Max"
+          placeholder={m.common.nickPlaceholder}
         />
-        <Text style={ui.body}>Every driver has a different nick. You can change it later.</Text>
+        <Text style={ui.body}>{m.profile.nickUnique}</Text>
         <PrimaryButton
-          text="SAVE NICK"
+          text={m.profile.saveNick}
           busy={busy}
           disabled={!nick.trim()}
           onPress={() => run(() => chooseNick(nick))}
         />
         <Feedback error={error} note={note} />
       </Card>
-      <SecondaryButton text="Sign out" onPress={() => run(signOutAccount)} />
+      <SecondaryButton text={m.profile.signOut} onPress={() => run(signOutAccount)} />
     </Screen>
   );
 }
 
 function AccountProfile() {
+  const m = useMessages();
   const nick = useProfile((state) => state.nick);
   const { email, provider } = useAccount();
   const rating = useCareer((state) => state.rating);
@@ -299,43 +327,42 @@ function AccountProfile() {
 
   return (
     <Screen>
-      <Header title={nick || 'Driver'} subtitle={`Licence · ${licenceFor(rating, ratedRaces)}`} />
+      <Header title={nick || m.profile.driver} subtitle={m.profile.licence(licenceFor(rating, ratedRaces))} />
 
-      <SectionLabel>Rating</SectionLabel>
+      <SectionLabel>{m.profile.rating}</SectionLabel>
       <Card style={[styles.card, styles.ratingRow]}>
         <View>
           <Text style={[styles.rating, tabular]}>{Math.round(rating)}</Text>
-          <Text style={ui.body}>
-            {ratedRaces} rated {ratedRaces === 1 ? 'race' : 'races'}
-          </Text>
+          <Text style={ui.body}>{m.profile.ratedRaces(ratedRaces)}</Text>
         </View>
-        <Text style={styles.beta}>β Beta: rating from private rooms, may still change</Text>
+        <Text style={styles.beta}>{m.profile.ratingBeta}</Text>
       </Card>
 
-      <SectionLabel>Account</SectionLabel>
+      <SectionLabel>{m.profile.account}</SectionLabel>
       <Card style={styles.card}>
         <Text style={ui.body}>
-          Signed in {provider === 'google' ? 'with Google' : 'with e-mail'} as{' '}
-          <Text style={styles.strong}>{email}</Text>. Records, stats and rating are saved in the cloud.
+          {provider === 'google' ? m.profile.signedInGoogle : m.profile.signedInEmail}
+          <Text style={styles.strong}>{email}</Text>
+          {m.profile.cloudNote}
         </Text>
         {editing ? (
           <>
-            <Field label="New nick" value={newNick} onChangeText={setNewNick} maxLength={NICK_MAX_LENGTH} />
+            <Field label={m.profile.newNick} value={newNick} onChangeText={setNewNick} maxLength={NICK_MAX_LENGTH} />
             <PrimaryButton
-              text="SAVE NICK"
+              text={m.profile.saveNick}
               busy={busy}
               disabled={!newNick.trim() || newNick.trim() === nick}
               onPress={() =>
                 run(async () => {
                   await chooseNick(newNick);
                   setEditing(false);
-                }, 'Nick saved.')
+                }, m.profile.nickSaved)
               }
             />
           </>
         ) : (
           <SecondaryButton
-            text="Change nick"
+            text={m.profile.changeNick}
             onPress={() => {
               setNewNick(nick);
               setEditing(true);
@@ -345,26 +372,24 @@ function AccountProfile() {
         <Feedback error={error} note={note} />
       </Card>
 
-      <SecondaryButton text="Sign out" onPress={() => run(signOutAccount)} />
+      <SecondaryButton text={m.profile.signOut} onPress={() => run(signOutAccount)} />
 
       {confirmDelete ? (
         <Card style={[styles.card, styles.deleteCard]}>
-          <Text style={styles.cardTitle}>Delete account?</Text>
-          <Text style={ui.body}>
-            This removes your account, nick, records, race history and rating for good. It cannot be undone.
-          </Text>
+          <Text style={styles.cardTitle}>{m.profile.deleteTitle}</Text>
+          <Text style={ui.body}>{m.profile.deleteBody}</Text>
           <View style={styles.row}>
             <View style={styles.flex}>
-              <SecondaryButton text="Cancel" onPress={() => setConfirmDelete(false)} />
+              <SecondaryButton text={m.common.cancel} onPress={() => setConfirmDelete(false)} />
             </View>
             <View style={styles.flex}>
-              <SecondaryButton text="Delete for good" danger onPress={() => run(deleteAccount)} />
+              <SecondaryButton text={m.profile.deleteForGood} danger onPress={() => run(deleteAccount)} />
             </View>
           </View>
         </Card>
       ) : (
         <Pressable onPress={() => setConfirmDelete(true)} accessibilityRole="button" style={styles.link}>
-          <Text style={[styles.linkText, styles.mutedText]}>Delete account</Text>
+          <Text style={[styles.linkText, styles.mutedText]}>{m.profile.deleteAccount}</Text>
         </Pressable>
       )}
     </Screen>
@@ -373,6 +398,9 @@ function AccountProfile() {
 
 const styles = StyleSheet.create({
   loading: { marginTop: 80 },
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  gear: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  gearText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.muted },
   header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 12 },
   headerText: { flex: 1, minWidth: 0 },
   subtitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.muted },
