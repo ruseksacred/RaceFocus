@@ -1,4 +1,5 @@
 export * from './board';
+export * from './helmet';
 export * from './lap';
 export * from './length';
 export * from './random';

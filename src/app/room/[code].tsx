@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Board, StartLights } from '@/components/board';
 import { LiveDelta } from '@/components/delta';
+import { HelmetAvatar } from '@/components/helmet';
 import { FlagBanner, type FlagKind } from '@/components/flag';
 import {
   applyTap,
@@ -19,6 +20,7 @@ import {
   formatDelta,
   formatLapTime,
   getTrack,
+  helmetOf,
   lapSeed,
   lapTimesFromCrossings,
   MIN_PLAYERS,
@@ -175,6 +177,7 @@ function Lobby({ code, room, uid }: { code: string; room: Room; uid: string }) {
             {players.map(([id, p], i) => (
               <View key={id} style={[styles.row, i > 0 && styles.rowBorder]}>
                 <Text style={[styles.rowPos, tabular]}>{i + 1}</Text>
+                <HelmetAvatar helmet={helmetOf(p.helmet, p.name)} size={36} />
                 <Text style={styles.rowName} numberOfLines={1}>
                   {p.name}
                 </Text>
@@ -492,6 +495,7 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
         )}
 
         <LiveTable
+          room={room}
           standings={standings}
           uid={uid}
           numbersPerLap={numbersPerLap}
@@ -521,12 +525,19 @@ function progressText(m: Messages, s: Standing, numbersPerLap: number, laps: num
   return `L${s.lap}${laps === null ? '' : `/${laps}`} · ${s.cleared % numbersPerLap}/${numbersPerLap}`;
 }
 
+/** A driver's helmet in this room (their own design, or the default for their name). */
+function helmetIn(room: Room, id: string, name: string) {
+  return helmetOf(room.players?.[id]?.helmet, name);
+}
+
 function LiveTable({
+  room,
   standings,
   uid,
   numbersPerLap,
   laps,
 }: {
+  room: Room;
   standings: Standing[];
   uid: string;
   numbersPerLap: number;
@@ -538,6 +549,7 @@ function LiveTable({
       {standings.map((s, i) => (
         <View key={s.id} style={[styles.liveRow, i > 0 && styles.rowBorder, s.id === uid && styles.meRow]}>
           <Text style={[styles.livePos, tabular]}>P{s.position}</Text>
+          <HelmetAvatar helmet={helmetIn(room, s.id, s.name)} size={24} />
           <Text style={[styles.liveName, s.retired && styles.retired]} numberOfLines={1}>
             {s.name}
           </Text>
@@ -613,6 +625,7 @@ function Results({
             return (
               <View key={s.id} style={[styles.resultRow, styles.rowBorder, s.id === uid && styles.meRow]}>
                 <Text style={[styles.resPos, tabular]}>{s.retired ? 'DNF' : `P${s.position}`}</Text>
+                <HelmetAvatar helmet={helmetIn(room, s.id, s.name)} size={32} />
                 <View style={styles.resName}>
                   <Text style={styles.rowName} numberOfLines={1}>
                     {s.name}
