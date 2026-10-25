@@ -40,6 +40,7 @@ import {
   type Session,
   type Track,
 } from '@/game';
+import { feedback } from '@/feedback';
 import { useMessages } from '@/i18n';
 import { goBack } from '@/navigation';
 import { usePractice } from '@/store/practice';
@@ -126,6 +127,12 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
     [key, track, mode],
   );
 
+  // A beep for each red light, a higher one when they turn green.
+  useEffect(() => {
+    if (phase === 'countdown') feedback('light');
+    if (phase === 'green') feedback('go');
+  }, [phase, countdown]);
+
   // Lights before the first lap.
   useEffect(() => {
     if (phase !== 'countdown') return;
@@ -200,7 +207,9 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
       if (outcome.result === 'wrong') {
         setWrongValue(value);
         setYellowAt(at);
+        feedback('wrong');
       }
+      if (outcome.result === 'correct') feedback('tap');
       if (outcome.result === 'finished') {
         const lapMs = lapTimeMs(outcome.state)!;
         const previous = sessionRef.current;
@@ -223,6 +232,8 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
           sessionBest: previousBest === null || lapMs < previousBest.ms,
           firstLap: previousBest === null,
         });
+        const improved = isPersonalBest || (previousBest !== null && lapMs < previousBest.ms);
+        feedback(isComplete(updated) ? 'finish' : improved ? 'best' : 'lap');
         if (isComplete(updated)) {
           setNow(at);
           setPhase('finish');

@@ -30,6 +30,7 @@ import {
   type RoomRules,
   type Standing,
 } from '@/game';
+import { feedback } from '@/feedback';
 import { describeError, useMessages, type Messages } from '@/i18n';
 import { describeLength, seconds } from '@/labels';
 import { goBack } from '@/navigation';
@@ -320,8 +321,10 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
     if (outcome.result === 'wrong') {
       setWrongValue(value);
       setYellowAt(real);
+      feedback('wrong');
       reportMistakes(code, uid, d.prevMistakes + outcome.state.mistakes).catch(() => {});
     }
+    if (outcome.result === 'correct') feedback('tap');
     if (outcome.result === 'correct' || outcome.result === 'finished') {
       const crossing = real + d.prevPenaltyMs + penaltyMs(outcome.state);
       const index = d.lapIndex * numbersPerLap + outcome.state.nextIndex - 1;
@@ -345,6 +348,8 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
         length.kind === 'laps'
           ? d.lapIndex + 1 >= rules.laps
           : !!raceStandings(withMine, numbersPerLap, length).standings.find((s) => s.id === uid)?.finished;
+      const improved = d.raceBest !== null && lapMs < d.raceBest.ms;
+      feedback(lastLap ? 'finish' : improved ? 'best' : 'lap');
       next = lastLap
         ? { ...next, finished: true }
         : {
@@ -407,6 +412,21 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
   else if (yellowAt !== null) flag = 'yellow';
   else if (length.kind === 'laps' ? lapNumber === rules.laps : timeUp || flagTime !== null) flag = 'white';
 
+  // Lights: three red one by one, then green, then go at startAt.
+  const toGo = -raceReal;
+  const green = toGo > 0 && toGo <= GREEN_MS;
+  const lit = green
+    ? 3
+    : Math.max(0, Math.min(3, Math.ceil((GREEN_MS + 3 * RED_STEP_MS - toGo) / RED_STEP_MS)));
+  const lightsText = green ? m.lights.go : lit === 0 ? m.lights.getReady : String(4 - lit);
+
+  // A beep for each red light, a higher one when they turn green.
+  const lightSignal = started ? 'racing' : green ? 'green' : `red${lit}`;
+  useEffect(() => {
+    if (lightSignal === 'green') feedback('go');
+    else if (lightSignal !== 'racing' && lightSignal !== 'red0') feedback('light');
+  }, [lightSignal]);
+
   if (done || me.retired) {
     return (
       <Results
@@ -421,14 +441,6 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
       />
     );
   }
-
-  // Lights: three red one by one, then green, then go at startAt.
-  const toGo = -raceReal;
-  const green = toGo > 0 && toGo <= GREEN_MS;
-  const lit = green
-    ? 3
-    : Math.max(0, Math.min(3, Math.ceil((GREEN_MS + 3 * RED_STEP_MS - toGo) / RED_STEP_MS)));
-  const lightsText = green ? m.lights.go : lit === 0 ? m.lights.getReady : String(4 - lit);
 
   return (
     <SafeAreaView style={styles.safe}>
