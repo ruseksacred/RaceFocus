@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Card, Screen, SectionLabel, ui } from '@/components/ui';
 import { deviceLanguage, LANGUAGES, useMessages } from '@/i18n';
@@ -12,6 +12,13 @@ export default function SettingsScreen() {
   const m = useMessages();
   const language = useSettings((state) => state.language);
   const setLanguage = useSettings((state) => state.setLanguage);
+  const sounds = useSettings((state) => state.sounds);
+  const setSounds = useSettings((state) => state.setSounds);
+  const vibration = useSettings((state) => state.vibration);
+  const setVibration = useSettings((state) => state.setVibration);
+  // Safari on iPhone has no vibration in web pages.
+  const isIosWeb =
+    Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent);
   const phoneLanguage = LANGUAGES.find((l) => l.id === deviceLanguage())!.name;
 
   const options: { id: LanguageSetting; title: string; note?: string }[] = [
@@ -54,11 +61,54 @@ export default function SettingsScreen() {
         </View>
       </Card>
 
+      <SectionLabel>{m.settings.feedback}</SectionLabel>
+      <Card style={styles.list}>
+        <Toggle title={m.settings.sounds} note={m.settings.soundsNote} value={sounds} onChange={setSounds} />
+        <Toggle
+          title={m.settings.vibration}
+          note={isIosWeb ? m.settings.vibrationWebNote : m.settings.vibrationNote}
+          value={vibration}
+          onChange={setVibration}
+          border
+        />
+      </Card>
+
       <SectionLabel>{m.settings.about}</SectionLabel>
       <Card style={styles.about}>
         <Text style={ui.body}>{m.settings.version(Constants.expoConfig?.version ?? '1.0.0')}</Text>
       </Card>
     </Screen>
+  );
+}
+
+function Toggle({
+  title,
+  note,
+  value,
+  onChange,
+  border,
+}: {
+  title: string;
+  note: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+  border?: boolean;
+}) {
+  return (
+    <View style={[styles.row, border && styles.rowBorder]}>
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowNote}>{note}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        accessibilityLabel={title}
+        trackColor={{ false: colors.line, true: colors.red }}
+        thumbColor={colors.white}
+        {...(Platform.OS === 'web' ? { activeThumbColor: colors.white } : {})}
+      />
+    </View>
   );
 }
 

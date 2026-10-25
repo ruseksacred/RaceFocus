@@ -35,6 +35,12 @@ To try rooms without a project, run `npm run emulators` (needs Java) and put `EX
 - Profile → **Edit helmet**: colour, design, design colour and race number. Other drivers see it in rooms and results.
 - After `database.rules.json` changes, publish it again in the Firebase console (Realtime Database → Rules), or helmets do not show in rooms.
 
+## Sound and vibration
+
+- Beeps for the start lights, a click per correct tap, a buzz and a vibration on a wrong tap, chimes for laps and best laps, a fanfare at the finish. Turn either off in **Profile → Settings**.
+- Sounds are generated in code (`src/feedback/synth.ts`); `npm run sounds` writes the WAV files the phone app uses.
+- Vibration works in Android browsers and the phone app; Safari on iPhone does not support it.
+
 ## Accounts
 
 - Play as a guest (data on the device) or create an account in **Profile**: e-mail and password, or Google (web).
