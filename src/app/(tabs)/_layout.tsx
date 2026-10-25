@@ -13,7 +13,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: m.tabs.home }} />
       <Tabs.Screen name="practice" options={{ title: m.tabs.practice }} />
       <Tabs.Screen name="rooms" options={{ title: m.tabs.race }} />
-      <Tabs.Screen name="stats" options={{ title: m.tabs.stats }} />
+      <Tabs.Screen name="leaders" options={{ title: m.tabs.leaders }} />
       <Tabs.Screen name="profile" options={{ title: m.tabs.profile }} />
     </Tabs>
   );

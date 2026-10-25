@@ -20,6 +20,7 @@ import { describeError, useMessages } from '@/i18n';
 import { googleSignInAvailable } from '@/net/auth-setup';
 import { firebaseConfigured } from '@/net/firebase';
 import { useCareer } from '@/store/career';
+import { usePractice } from '@/store/practice';
 import { useProfile } from '@/store/profile';
 import { colors, fonts, label, tabular } from '@/theme';
 
@@ -154,6 +155,38 @@ function Field({
   );
 }
 
+/** Short summary of the driver's stats, with a link to the full Stats screen. */
+function StatsCard() {
+  const m = useMessages();
+  const races = useCareer((state) => state.races);
+  const wins = useCareer((state) => state.wins);
+  const sessions = usePractice((state) => state.totals.sessions);
+  return (
+    <>
+      <SectionLabel>{m.profile.stats}</SectionLabel>
+      <Link href="/stats" asChild>
+        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.statsCard, pressed && styles.pressed]}>
+          <View style={styles.statsRow}>
+            <MiniStat title={m.profile.statRaces} value={races} />
+            <MiniStat title={m.profile.statWins} value={wins} />
+            <MiniStat title={m.profile.statSessions} value={sessions} />
+          </View>
+          <Text style={styles.statsLink}>{m.profile.allStats}</Text>
+        </Pressable>
+      </Link>
+    </>
+  );
+}
+
+function MiniStat({ title, value }: { title: string; value: number }) {
+  return (
+    <View style={styles.miniStat}>
+      <Text style={[label, styles.small]}>{title}</Text>
+      <Text style={[styles.miniValue, tabular]}>{value}</Text>
+    </View>
+  );
+}
+
 function Feedback({ error, note }: { error: string | null; note: string | null }) {
   if (error)
     return (
@@ -212,6 +245,7 @@ function GuestProfile() {
   return (
     <Screen>
       <Header title={m.profile.guestTitle} subtitle={m.profile.guestSubtitle} />
+      <StatsCard />
 
       <Card style={styles.card}>
         <Text style={styles.cardTitle}>{m.profile.saveProgress}</Text>
@@ -337,6 +371,8 @@ function AccountProfile() {
     <Screen>
       <Header title={nick || m.profile.driver} subtitle={m.profile.licence(licenceFor(rating, ratedRaces))} />
 
+      <StatsCard />
+
       <SectionLabel>{m.profile.rating}</SectionLabel>
       <Card style={[styles.card, styles.ratingRow]}>
         <View>
@@ -406,6 +442,18 @@ function AccountProfile() {
 
 const styles = StyleSheet.create({
   loading: { marginTop: 80 },
+  statsCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  statsRow: { flexDirection: 'row' },
+  miniStat: { flex: 1, gap: 2 },
+  miniValue: { fontFamily: fonts.heading, fontSize: 28, color: colors.text },
+  statsLink: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.text },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   gear: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   gearText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.muted },

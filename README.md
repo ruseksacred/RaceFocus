@@ -41,6 +41,13 @@ To try rooms without a project, run `npm run emulators` (needs Java) and put `EX
 - Sounds are generated in code (`src/feedback/synth.ts`); `npm run sounds` writes the WAV files the phone app uses.
 - Vibration works in Android browsers and the phone app; Safari on iPhone does not support it.
 
+## Leaders
+
+- **Leaders** tab: track records per track and mode, podium for the top three, then the list. Only laps from online races (private rooms with a penalty of at least 1 s) by drivers with an account count; solo practice does not.
+- **Test data** switch on the tab mixes in made-up drivers marked TEST, for trying it out.
+- Your stats are in **Profile → All stats**.
+- Publish `database.rules.json` again in the Firebase console after this change (new `leaderboards` rules and index).
+
 ## Accounts
 
 - Play as a guest (data on the device) or create an account in **Profile**: e-mail and password, or Google (web).
