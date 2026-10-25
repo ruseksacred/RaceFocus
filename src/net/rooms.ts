@@ -34,7 +34,33 @@ const playerRef = (code: string, uid: string) => ref(firebase().db, `rooms/${cod
 
 export class RoomError extends Error {}
 
-export async function createRoom(nick: string, rules: RoomRules): Promise<string> {
+const SERVER_TIMEOUT_MS = 12000;
+
+/** The database SDK waits forever while offline; give up with a clear message instead. */
+function withTimeout<T>(promise: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(
+      () => reject(new RoomError('No connection to the race server. Check your internet and try again.')),
+      SERVER_TIMEOUT_MS,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(id);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(id);
+        reject(error);
+      },
+    );
+  });
+}
+
+export function createRoom(nick: string, rules: RoomRules): Promise<string> {
+  return withTimeout(createRoomNow(nick, rules));
+}
+
+async function createRoomNow(nick: string, rules: RoomRules): Promise<string> {
   const uid = await signIn();
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateRoomCode();
@@ -54,7 +80,11 @@ export async function createRoom(nick: string, rules: RoomRules): Promise<string
   throw new RoomError('Could not create a room. Try again.');
 }
 
-export async function joinRoom(code: string, nick: string): Promise<void> {
+export function joinRoom(code: string, nick: string): Promise<void> {
+  return withTimeout(joinRoomNow(code, nick));
+}
+
+async function joinRoomNow(code: string, nick: string): Promise<void> {
   const uid = await signIn();
   const snap = await get(roomRef(code));
   const room = snap.val() as Room | null;

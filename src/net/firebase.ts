@@ -11,10 +11,22 @@ import { connectDatabaseEmulator, getDatabase, onValue, ref, type Database } fro
 /**
  * Firebase setup for private rooms.
  *
- * Config comes from EXPO_PUBLIC_FIREBASE_* variables (see .env.example).
+ * Uses the RaceFocus project below; EXPO_PUBLIC_FIREBASE_* variables (see .env.example) override it.
  * With EXPO_PUBLIC_FIREBASE_EMULATOR_HOST set, the app talks to the local
  * emulators instead (`npm run emulators`), no Firebase project needed.
  */
+/**
+ * The RaceFocus Firebase project. Web config is not secret (it ships in every web app);
+ * access is controlled by database.rules.json. EXPO_PUBLIC_FIREBASE_* variables override it.
+ */
+const PROJECT = {
+  apiKey: 'AIzaSyC3WYoe4kmybR9LWtY4Y71ItUmdb7PnmmI',
+  authDomain: 'racefocus-b709c.firebaseapp.com',
+  databaseURL: 'https://racefocus-b709c-default-rtdb.europe-west1.firebasedatabase.app',
+  projectId: 'racefocus-b709c',
+  appId: '1:747969436231:web:e3561b69da65cae1c3af62',
+};
+
 const emulatorHost = process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST;
 const DEMO_PROJECT = 'demo-racefocus';
 
@@ -26,11 +38,11 @@ const config = emulatorHost
       appId: 'demo-app',
     }
   : {
-      apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      databaseURL: process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL,
-      projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-      appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+      apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || PROJECT.apiKey,
+      authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || PROJECT.authDomain,
+      databaseURL: process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL || PROJECT.databaseURL,
+      projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || PROJECT.projectId,
+      appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || PROJECT.appId,
     };
 
 /** False when no Firebase project or emulator is set up; rooms are then unavailable. */
