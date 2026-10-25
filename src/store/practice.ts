@@ -9,7 +9,10 @@ import { deviceStorage } from './storage';
 export interface PracticeSetup {
   track: TrackId;
   mode: Mode;
+  /** Race length: a number of laps or a time limit. */
+  lengthKind: 'laps' | 'time';
   laps: number;
+  minutes: number;
 }
 
 export interface SessionSummary {
@@ -18,6 +21,8 @@ export interface SessionSummary {
   mode: Mode;
   lapsDriven: number;
   targetLaps: number;
+  /** Timed sessions: the time limit in minutes. */
+  minutes?: number;
   bestMs: number;
   totalMs: number;
   mistakes: number;
@@ -55,7 +60,7 @@ export function mergeRecent(a: readonly SessionSummary[], b: readonly SessionSum
 export const usePractice = create<PracticeState>()(
   persist(
     (set) => ({
-      setup: { track: 'circuit', mode: 'ascending', laps: 5 },
+      setup: { track: 'circuit', mode: 'ascending', lengthKind: 'laps', laps: 5, minutes: 3 },
       recent: [],
       totals: EMPTY_TOTALS,
       updateSetup: (change) => set((state) => ({ setup: { ...state.setup, ...change } })),
@@ -72,6 +77,16 @@ export const usePractice = create<PracticeState>()(
         set((state) => ({ recent: data.recent ?? state.recent, totals: data.totals ?? state.totals })),
       reset: () => set({ recent: [], totals: EMPTY_TOTALS }),
     }),
-    { name: 'racefocus.practice', storage: deviceStorage, version: 1 },
+    {
+      name: 'racefocus.practice',
+      storage: deviceStorage,
+      version: 2,
+      // v1 setups had no race length kind or minutes.
+      migrate: (persisted) => {
+        const state = persisted as { setup?: Partial<PracticeSetup> };
+        if (state?.setup) state.setup = { lengthKind: 'laps', minutes: 3, ...state.setup } as PracticeSetup;
+        return state as PracticeState;
+      },
+    },
   ),
 );

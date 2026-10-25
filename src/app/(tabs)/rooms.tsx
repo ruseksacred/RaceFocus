@@ -6,8 +6,10 @@ import { Card, Screen, SectionLabel, ui } from '@/components/ui';
 import {
   DEFAULT_RULES,
   MAX_LAPS,
+  MAX_MINUTES,
   MAX_PLAYERS,
   MIN_LAPS,
+  MIN_MINUTES,
   MIN_PLAYERS,
   MODES,
   NICK_MAX_LENGTH,
@@ -155,14 +157,44 @@ export default function Rooms() {
           ))}
         </View>
 
-        <View style={styles.steppers}>
-          <Stepper
-            title="Laps"
-            value={rules.laps}
-            min={MIN_LAPS}
-            max={MAX_LAPS}
-            onChange={(laps) => change({ laps })}
+        <Text style={[label, styles.small]}>Race length</Text>
+        <View style={styles.chips}>
+          <Chip
+            text="Laps"
+            selected={rules.lengthKind !== 'time'}
+            onPress={() => change({ lengthKind: 'laps' })}
           />
+          <Chip
+            text="Time"
+            selected={rules.lengthKind === 'time'}
+            onPress={() => change({ lengthKind: 'time' })}
+          />
+        </View>
+        {rules.lengthKind === 'time' && (
+          <Text style={styles.lengthNote}>
+            When time is up, the leader finishes their lap and takes the flag. Everyone else finishes the lap
+            they are on.
+          </Text>
+        )}
+
+        <View style={styles.steppers}>
+          {rules.lengthKind === 'time' ? (
+            <Stepper
+              title="Minutes"
+              value={rules.minutes}
+              min={MIN_MINUTES}
+              max={MAX_MINUTES}
+              onChange={(minutes) => change({ minutes })}
+            />
+          ) : (
+            <Stepper
+              title="Laps"
+              value={rules.laps}
+              min={MIN_LAPS}
+              max={MAX_LAPS}
+              onChange={(laps) => change({ laps })}
+            />
+          )}
           <Stepper
             title="Max drivers"
             value={rules.maxPlayers}
@@ -307,6 +339,7 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: fonts.heading, fontSize: 18, color: colors.muted },
   chipTextSelected: { color: colors.text },
   chipSub: { fontFamily: fonts.body, fontSize: 11, color: colors.muted },
+  lengthNote: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.muted },
   steppers: { flexDirection: 'row', gap: 16 },
   stepper: { flex: 1, gap: 6 },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

@@ -7,7 +7,7 @@ See `CLAUDE.md` for the full concept and roadmap.
 
 - Tracks: Sprint 3×3, Street 4×4, Circuit 5×5, Endurance 7×7.
 - Modes: 1 → N and countdown.
-- Session length typed by the player (1–99 laps); laps run back to back with no pause, then a session summary.
+- Race length: laps (1–99) or time (1–30 min). When time is up you finish the lap you are on. Laps run back to back with no pause, then a session summary.
 - Lights countdown before lap 1, lap timer, +1 s per wrong tap.
 - Live delta to the session best and personal best, updated at every tap.
 - Flags: yellow after a wrong tap, white before the final lap, chequered at the finish.
@@ -15,7 +15,8 @@ See `CLAUDE.md` for the full concept and roadmap.
 
 ## Private rooms (live races)
 
-- Race tab: create a room (track, mode, laps, penalty per wrong tap, max drivers) or join one with a 5-letter code and a nick.
+- Race tab: create a room (track, mode, laps or time, penalty per wrong tap, max drivers) or join one with a 5-letter code and a nick.
+- Timed races: when time is up the leader finishes the lap they are on and takes the chequered flag; everyone else then finishes at the end of their current lap. Order is laps completed, then time; lapped drivers show “+N laps”.
 - Lobby shows the drivers; the host starts the race. Everyone gets the same boards and counts down to the same server time.
 - During the race: position, gap to P1 and to the car ahead (F1-style, at the same number), live standings, flags.
 - Results: finishing order, gap to the winner, best laps (fastest of the race in purple), mistakes, accuracy. The host can start a new race in the same room.

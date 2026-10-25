@@ -13,6 +13,7 @@ import {
   currentLapNumber,
   deltaMs,
   elapsedMs,
+  formatClock,
   formatDelta,
   formatLapTime,
   getTrack,
@@ -22,8 +23,14 @@ import {
   liveDeltaMs,
   MODES,
   nextTarget,
+  lapsLength,
+  MINUTE_MS,
   parseLapCount,
+  parseMinutes,
   randomSeed,
+  timeLeft,
+  timeLength,
+  type RaceLength,
   sessionBest,
   sessionBestIndex,
   totalTime,
@@ -68,19 +75,21 @@ const YELLOW_FLAG_MS = 2000;
 const DEFAULT_LAPS = 5;
 
 export default function RaceScreen() {
-  const params = useLocalSearchParams<{ track?: string; mode?: string; laps?: string }>();
+  const params = useLocalSearchParams<{ track?: string; mode?: string; laps?: string; minutes?: string }>();
   const track = getTrack(params.track ?? '') ?? getTrack('circuit')!;
   const mode: Mode = MODES.includes(params.mode as Mode) ? (params.mode as Mode) : 'ascending';
-  const targetLaps = parseLapCount(params.laps ?? '') ?? DEFAULT_LAPS;
-  return <Race track={track} mode={mode} targetLaps={targetLaps} />;
+  const minutes = parseMinutes(params.minutes ?? '');
+  const length =
+    minutes !== null ? timeLength(minutes) : lapsLength(parseLapCount(params.laps ?? '') ?? DEFAULT_LAPS);
+  return <Race track={track} mode={mode} length={length} />;
 }
 
-function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLaps: number }) {
+function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceLength }) {
   const key = recordKey(track.id, mode);
   const personalBest = useRecords((state) => state.bestLaps[key] ?? null);
   const submitLap = useRecords((state) => state.submitLap);
 
-  const [session, setSession] = useState<Session>(() => createSession(targetLaps));
+  const [session, setSession] = useState<Session>(() => createSession(length));
   const [lap, setLap] = useState<LapState>(() => newLap(track, mode));
   const [refs, setRefs] = useState<References>({ session: null, personal: null });
   const [phase, setPhase] = useState<Phase>('countdown');
@@ -155,7 +164,8 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
       track: track.id,
       mode,
       lapsDriven: session.laps.length,
-      targetLaps: session.targetLaps,
+      targetLaps: session.length.kind === 'laps' ? session.length.laps : session.laps.length,
+      minutes: session.length.kind === 'time' ? session.length.ms / MINUTE_MS : undefined,
       bestMs: best.ms,
       totalMs: totalTime(session),
       mistakes: session.laps.reduce((sum, l) => sum + l.mistakes, 0),
@@ -223,7 +233,7 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
   );
 
   const restart = () => {
-    const fresh = createSession(targetLaps);
+    const fresh = createSession(length);
     sessionRef.current = fresh;
     personalBestRef.current = false;
     setSession(fresh);
@@ -260,13 +270,21 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
   const total = lap.targets.length;
   const target = nextTarget(lap);
 
+  // Race clock: laps run back to back, so it is the finished laps plus the lap being driven.
+  const raceNow = totalTime(session) + (phase === 'running' ? time : 0);
+  const left = timeLeft(session, raceNow);
+  const lapText =
+    length.kind === 'laps'
+      ? `Lap ${lapNumber} / ${length.laps}`
+      : `Lap ${lapNumber} · ${left === null || left > 0 ? `${formatClock(left ?? 0)} left` : 'Time up'}`;
+
   const liveSession = beforeStart ? null : liveDeltaMs(lap.splits, refs.session, time);
   const livePersonal = beforeStart ? null : liveDeltaMs(lap.splits, refs.personal, time);
 
   let flag: FlagKind | null = null;
   if (phase === 'finish') flag = 'chequered';
   else if (yellowAt !== null && phase === 'running') flag = 'yellow';
-  else if (isFinalLap(session)) flag = 'white';
+  else if (isFinalLap(session, raceNow)) flag = 'white';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -280,7 +298,7 @@ function Race({ track, mode, targetLaps }: { track: Track; mode: Mode; targetLap
             <Text style={styles.exit}>{session.laps.length > 0 ? '‹ End' : '‹ Exit'}</Text>
           </Pressable>
           <Text style={label}>
-            Lap {lapNumber} / {targetLaps} · {track.size}×{track.size} {track.name}
+            {lapText} · {track.size}×{track.size} {track.name}
           </Text>
         </View>
 
@@ -448,7 +466,14 @@ function Summary({
       <Text style={styles.summaryTitle}>{complete ? 'Session complete' : 'Session ended'}</Text>
 
       <View style={styles.summaryStats}>
-        <SummaryStat title="Laps" value={`${session.laps.length} / ${session.targetLaps}`} />
+        <SummaryStat
+          title="Laps"
+          value={
+            session.length.kind === 'laps'
+              ? `${session.laps.length} / ${session.length.laps}`
+              : `${session.laps.length} in ${Math.round(session.length.ms / MINUTE_MS)} min`
+          }
+        />
         <SummaryStat title="Total" value={formatLapTime(totalTime(session))} />
         <SummaryStat title="Best lap" value={best ? formatLapTime(best.ms) : '—'} color={colors.purple} />
         <SummaryStat

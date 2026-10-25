@@ -42,11 +42,7 @@ describe('computeStandings', () => {
   });
 
   it('reports laps and finishers', () => {
-    const [p1, p2] = computeStandings(
-      [driver('a', [1, 2, 3, 4, 5, 6]), driver('b', [2, 3, 4, 5])],
-      3,
-      2,
-    );
+    const [p1, p2] = computeStandings([driver('a', [1, 2, 3, 4, 5, 6]), driver('b', [2, 3, 4, 5])], 3, 2);
     expect(p1).toMatchObject({ finished: true, totalMs: 6, lap: 2, cleared: 6 });
     expect(p2).toMatchObject({ finished: false, totalMs: null, lap: 2, cleared: 4 });
   });

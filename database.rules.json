@@ -36,6 +36,12 @@
           "maxPlayers": {
             ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 12"
           },
+          "lengthKind": {
+            ".validate": "newData.val() === 'laps' || newData.val() === 'time'"
+          },
+          "minutes": {
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 30"
+          },
           "$other": {
             ".validate": false
           }

@@ -1,5 +1,6 @@
 export * from './board';
 export * from './lap';
+export * from './length';
 export * from './random';
 export * from './rating';
 export * from './room';

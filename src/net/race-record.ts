@@ -41,7 +41,7 @@ export function buildRaceRecord(
     roomCode: code,
     track: room.rules.track,
     mode: room.rules.mode,
-    laps: room.rules.laps,
+    laps: room.rules.lengthKind === 'time' ? Math.floor(mine.cleared / numbersPerLap) : room.rules.laps,
     drivers: standings.length,
     position: finished ? mine.position : null,
     totalMs: finished ? mine.totalMs : null,

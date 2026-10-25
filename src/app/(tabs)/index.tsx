@@ -23,7 +23,10 @@ export default function Home() {
   const start = () =>
     router.push({
       pathname: '/race',
-      params: { track: setup.track, mode: setup.mode, laps: String(setup.laps) },
+      params:
+        setup.lengthKind === 'time'
+          ? { track: setup.track, mode: setup.mode, minutes: String(setup.minutes) }
+          : { track: setup.track, mode: setup.mode, laps: String(setup.laps) },
     });
 
   return (
@@ -45,7 +48,10 @@ export default function Home() {
           </Link>
         </View>
         <Text style={styles.quickTitle}>
-          {trackLabel(track)} · {setup.laps} {setup.laps === 1 ? 'lap' : 'laps'}
+          {trackLabel(track)} ·{' '}
+          {setup.lengthKind === 'time'
+            ? `${setup.minutes} min`
+            : `${setup.laps} ${setup.laps === 1 ? 'lap' : 'laps'}`}
         </Text>
         <View style={styles.quickStats}>
           <Stat title="Mode" value={MODE_SHORT[setup.mode]} />
@@ -113,6 +119,7 @@ export default function Home() {
                     {trackLabel(t)}
                     {s.mode === 'descending' ? ' · Countdown' : ''} · {s.lapsDriven}{' '}
                     {s.lapsDriven === 1 ? 'lap' : 'laps'}
+                    {s.minutes ? ` in ${s.minutes} min` : ''}
                   </Text>
                   <Text style={styles.rowMeta}>
                     {formatWhen(s.finishedAt)} · {s.mistakes === 1 ? '1 mistake' : `${s.mistakes} mistakes`}

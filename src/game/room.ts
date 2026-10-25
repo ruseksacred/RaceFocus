@@ -1,11 +1,15 @@
 import type { Mode } from './board';
+import { lapsLength, timeLength, type RaceLength } from './length';
 import type { TrackId } from './tracks';
 
 /** Rules the host sets for a private room. Everyone in the room races with them. */
 export interface RoomRules {
   track: TrackId;
   mode: Mode;
+  /** Race by laps, or by time (the leader finishes the lap they are on when time is up). */
+  lengthKind: 'laps' | 'time';
   laps: number;
+  minutes: number;
   penaltyMs: number;
   maxPlayers: number;
 }
@@ -17,10 +21,17 @@ export const MAX_PLAYERS = 12;
 export const DEFAULT_RULES: RoomRules = {
   track: 'circuit',
   mode: 'ascending',
+  lengthKind: 'laps',
   laps: 3,
+  minutes: 3,
   penaltyMs: 1000,
   maxPlayers: 8,
 };
+
+/** Race length from the rules. Rooms made before timed races have no lengthKind: they are lap races. */
+export function roomLength(rules: RoomRules): RaceLength {
+  return rules.lengthKind === 'time' ? timeLength(rules.minutes) : lapsLength(rules.laps);
+}
 
 /** No 0/O or 1/I so codes are easy to read out loud. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

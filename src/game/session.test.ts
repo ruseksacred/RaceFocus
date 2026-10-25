@@ -7,6 +7,7 @@ import {
   isComplete,
   isFinalLap,
   parseLapCount,
+  timeLeft,
   sessionBest,
   sessionBestIndex,
   totalTime,
@@ -82,5 +83,35 @@ describe('session', () => {
     s = addLap(s, lap(7000));
     s = addLap(s, lap(7000));
     expect(sessionBestIndex(s)).toBe(0);
+  });
+});
+
+describe('timed session', () => {
+  const fiveSec = { kind: 'time' as const, ms: 60_000 };
+
+  it('rejects limits outside 1 to 30 minutes', () => {
+    expect(() => createSession({ kind: 'time', ms: 30_000 })).toThrow();
+    expect(() => createSession({ kind: 'time', ms: 31 * 60_000 })).toThrow();
+  });
+
+  it('runs until a lap ends on or after the limit', () => {
+    let s = createSession(fiveSec);
+    s = addLap(s, lap(25_000));
+    s = addLap(s, lap(25_000));
+    expect(isComplete(s)).toBe(false);
+    // 50 s on the clock: still racing, not the final lap yet.
+    expect(isFinalLap(s, 55_000)).toBe(false);
+    // Time is up during lap 3: that lap is the last one.
+    expect(isFinalLap(s, 61_000)).toBe(true);
+    s = addLap(s, lap(25_000));
+    expect(isComplete(s)).toBe(true);
+    expect(addLap(s, lap(1000)).laps).toHaveLength(3);
+  });
+
+  it('reports the time left', () => {
+    const s = createSession(fiveSec);
+    expect(timeLeft(s, 20_000)).toBe(40_000);
+    expect(timeLeft(s, 70_000)).toBe(0);
+    expect(timeLeft(createSession(3), 1000)).toBeNull();
   });
 });

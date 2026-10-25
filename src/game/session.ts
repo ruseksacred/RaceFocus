@@ -1,3 +1,5 @@
+import { MAX_MINUTES, MIN_MINUTES, MINUTE_MS, type RaceLength } from './length';
+
 /** One finished lap of a session. */
 export interface LapRecord {
   /** Lap time in ms, penalties included. */
@@ -7,9 +9,12 @@ export interface LapRecord {
   mistakes: number;
 }
 
-/** A solo practice session: a fixed number of laps on one track and mode. */
+/**
+ * A solo practice session on one track and mode: a number of laps, or a time limit.
+ * Laps run back to back, so the race clock is the sum of the lap times.
+ */
 export interface Session {
-  targetLaps: number;
+  length: RaceLength;
   laps: LapRecord[];
 }
 
@@ -24,11 +29,17 @@ export function parseLapCount(input: string): number | null {
   return laps >= MIN_LAPS && laps <= MAX_LAPS ? laps : null;
 }
 
-export function createSession(targetLaps: number): Session {
-  if (!Number.isInteger(targetLaps) || targetLaps < MIN_LAPS || targetLaps > MAX_LAPS) {
-    throw new Error(`Invalid lap count: ${targetLaps}`);
+/** Accepts a RaceLength, or a lap count for short. */
+export function createSession(length: RaceLength | number): Session {
+  const target: RaceLength = typeof length === 'number' ? { kind: 'laps', laps: length } : length;
+  if (target.kind === 'laps') {
+    if (!Number.isInteger(target.laps) || target.laps < MIN_LAPS || target.laps > MAX_LAPS) {
+      throw new Error(`Invalid lap count: ${target.laps}`);
+    }
+  } else if (target.ms < MIN_MINUTES * MINUTE_MS || target.ms > MAX_MINUTES * MINUTE_MS) {
+    throw new Error(`Invalid time limit: ${target.ms}`);
   }
-  return { targetLaps, laps: [] };
+  return { length: target, laps: [] };
 }
 
 export function addLap(session: Session, lap: LapRecord): Session {
@@ -36,8 +47,10 @@ export function addLap(session: Session, lap: LapRecord): Session {
   return { ...session, laps: [...session.laps, lap] };
 }
 
+/** Lap race: all laps done. Timed race: a lap ended on or after the time limit. */
 export function isComplete(session: Session): boolean {
-  return session.laps.length >= session.targetLaps;
+  if (session.length.kind === 'laps') return session.laps.length >= session.length.laps;
+  return session.laps.length > 0 && totalTime(session) >= session.length.ms;
 }
 
 /** Lap number of the lap being driven now (1-based). */
@@ -46,8 +59,20 @@ export function currentLapNumber(session: Session): number {
 }
 
 /** True while the next lap to drive is the last one. */
-export function isFinalLap(session: Session): boolean {
-  return session.laps.length === session.targetLaps - 1;
+/**
+ * True while the lap being driven is the last one.
+ * Timed race: once the race clock (`raceNow`, penalties included) passes the limit.
+ */
+export function isFinalLap(session: Session, raceNow = totalTime(session)): boolean {
+  if (isComplete(session)) return false;
+  if (session.length.kind === 'laps') return session.laps.length === session.length.laps - 1;
+  return raceNow >= session.length.ms;
+}
+
+/** Timed race: time left on the race clock (0 when up). Null for lap races. */
+export function timeLeft(session: Session, raceNow: number): number | null {
+  if (session.length.kind !== 'time') return null;
+  return Math.max(0, session.length.ms - raceNow);
 }
 
 /** Index of the fastest lap (first one on a tie), or -1. */

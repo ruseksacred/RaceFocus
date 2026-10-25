@@ -3,7 +3,19 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Card, Screen, SectionLabel } from '@/components/ui';
-import { formatLapTime, getTrack, MAX_LAPS, MIN_LAPS, MODES, parseLapCount, TRACKS } from '@/game';
+import {
+  formatLapTime,
+  getTrack,
+  MAX_LAPS,
+  MAX_MINUTES,
+  MIN_LAPS,
+  MIN_MINUTES,
+  MINUTE_MS,
+  MODES,
+  parseLapCount,
+  parseMinutes,
+  TRACKS,
+} from '@/game';
 import { usePractice } from '@/store/practice';
 import { recordKey, useRecords } from '@/store/records';
 import { MODE_LABELS } from '@/labels';
@@ -14,18 +26,31 @@ export default function Practice() {
   const updateSetup = usePractice((state) => state.updateSetup);
   const bestLaps = useRecords((state) => state.bestLaps);
   const [lapsText, setLapsText] = useState(String(setup.laps));
+  const [minutesText, setMinutesText] = useState(String(setup.minutes));
+  const timed = setup.lengthKind === 'time';
   const laps = parseLapCount(lapsText);
+  const minutes = parseMinutes(minutesText);
+  // The value being edited: laps for a lap race, minutes for a timed race.
+  const value = timed ? minutes : laps;
+  const [min, max] = timed ? [MIN_MINUTES, MAX_MINUTES] : [MIN_LAPS, MAX_LAPS];
 
-  const changeLaps = (text: string) => {
+  const changeValue = (text: string) => {
     const digits = text.replace(/[^0-9]/g, '');
-    setLapsText(digits);
-    const parsed = parseLapCount(digits);
-    if (parsed !== null) updateSetup({ laps: parsed });
+    if (timed) {
+      setMinutesText(digits);
+      const parsed = parseMinutes(digits);
+      if (parsed !== null) updateSetup({ minutes: parsed });
+    } else {
+      setLapsText(digits);
+      const parsed = parseLapCount(digits);
+      if (parsed !== null) updateSetup({ laps: parsed });
+    }
   };
-  const stepLaps = (step: number) => {
-    const next = Math.min(MAX_LAPS, Math.max(MIN_LAPS, (laps ?? setup.laps) + step));
-    changeLaps(String(next));
+  const step = (by: number) => {
+    const current = value ?? (timed ? setup.minutes : setup.laps);
+    changeValue(String(Math.min(max, Math.max(min, current + by))));
   };
+  const unit = timed ? 'min' : value === 1 ? 'lap' : 'laps';
 
   const track = getTrack(setup.track)!;
   const best = bestLaps[recordKey(setup.track, setup.mode)]?.ms;
@@ -80,52 +105,80 @@ export default function Practice() {
         })}
       </View>
 
-      <SectionLabel>Laps</SectionLabel>
-      <View style={styles.lapsRow}>
-        <StepButton text="−" label="One lap less" onPress={() => stepLaps(-1)} />
+      <SectionLabel>Race length</SectionLabel>
+      <View style={styles.modes} accessibilityRole="radiogroup">
+        {(['laps', 'time'] as const).map((kind) => {
+          const selected = kind === setup.lengthKind;
+          return (
+            <Pressable
+              key={kind}
+              onPress={() => updateSetup({ lengthKind: kind })}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              style={[styles.modeButton, selected && styles.modeButtonSelected]}>
+              <Text style={[styles.modeText, selected && styles.modeTextSelected]}>
+                {kind === 'laps' ? 'Laps' : 'Time'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={[styles.lapsRow, styles.lengthRow]}>
+        <StepButton text="−" label={timed ? 'One minute less' : 'One lap less'} onPress={() => step(-1)} />
         <TextInput
-          value={lapsText}
-          onChangeText={changeLaps}
+          value={timed ? minutesText : lapsText}
+          onChangeText={changeValue}
           keyboardType="number-pad"
           inputMode="numeric"
           maxLength={2}
           selectTextOnFocus
-          accessibilityLabel="Number of laps"
-          style={[styles.lapsInput, laps === null && styles.lapsInputInvalid]}
+          accessibilityLabel={timed ? 'Race minutes' : 'Number of laps'}
+          style={[styles.lapsInput, value === null && styles.lapsInputInvalid]}
         />
-        <StepButton text="+" label="One lap more" onPress={() => stepLaps(1)} />
-        <Text style={[styles.lapsHint, laps === null && styles.lapsHintInvalid]}>
-          {laps === null ? `Enter ${MIN_LAPS}–${MAX_LAPS}` : `Type ${MIN_LAPS}–${MAX_LAPS}\nor use − / +`}
+        <StepButton text="+" label={timed ? 'One minute more' : 'One lap more'} onPress={() => step(1)} />
+        <Text style={[styles.lapsHint, value === null && styles.lapsHintInvalid]}>
+          {value === null
+            ? `Enter ${min}–${max} ${timed ? 'minutes' : 'laps'}`
+            : `Type ${min}–${max}\nor use − / +`}
         </Text>
       </View>
+      {timed && <Text style={styles.lengthNote}>When time is up, you finish the lap you are on.</Text>}
 
       <Card style={styles.target}>
         <View style={styles.targetText}>
-          <Text style={[label, styles.small]}>Target race time</Text>
+          <Text style={[label, styles.small]}>{timed ? 'Laps at your best pace' : 'Target race time'}</Text>
           <Text style={styles.targetMeta}>
             {best === undefined
               ? `Set a lap on ${track.name} to get a target`
-              : `${laps ?? '–'} ${laps === 1 ? 'lap' : 'laps'} × your best lap`}
+              : timed
+                ? `${minutes ?? '–'} min ÷ your best lap`
+                : `${laps ?? '–'} ${laps === 1 ? 'lap' : 'laps'} × your best lap`}
           </Text>
         </View>
         <Text style={[styles.targetTime, tabular]}>
-          {best === undefined || laps === null ? '—' : formatLapTime(best * laps)}
+          {best === undefined || value === null
+            ? '—'
+            : timed
+              ? `≈ ${Math.floor((value * MINUTE_MS) / best) + 1}`
+              : formatLapTime(best * value)}
         </Text>
       </Card>
 
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ disabled: laps === null }}
-        disabled={laps === null}
+        accessibilityState={{ disabled: value === null }}
+        disabled={value === null}
         onPress={() =>
           router.push({
             pathname: '/race',
-            params: { track: setup.track, mode: setup.mode, laps: String(laps) },
+            params: timed
+              ? { track: setup.track, mode: setup.mode, minutes: String(minutes) }
+              : { track: setup.track, mode: setup.mode, laps: String(laps) },
           })
         }
-        style={({ pressed }) => [styles.start, laps === null && styles.disabled, pressed && styles.pressed]}>
+        style={({ pressed }) => [styles.start, value === null && styles.disabled, pressed && styles.pressed]}>
         <Text style={styles.startText}>
-          START · {laps ?? '–'} {laps === 1 ? 'LAP' : 'LAPS'}
+          START · {value ?? '–'} {unit.toUpperCase()}
         </Text>
       </Pressable>
       <Text style={styles.hint}>Tap the numbers in order as fast as you can. A wrong tap adds 1 second.</Text>
@@ -181,6 +234,8 @@ const styles = StyleSheet.create({
   modeText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.muted },
   modeTextSelected: { color: colors.text },
   lapsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  lengthRow: { marginTop: 10 },
+  lengthNote: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 8 },
   step: {
     width: 52,
     height: 52,
