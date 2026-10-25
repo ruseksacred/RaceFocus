@@ -1,19 +1,23 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { useMessages } from '@/i18n';
+import { seconds } from '@/labels';
 import { colors, fonts } from '@/theme';
 
 export type FlagKind = 'yellow' | 'white' | 'chequered';
 
-const FLAGS: Record<FlagKind, { text: string; background: string; color: string }> = {
-  yellow: { text: 'Yellow flag · +1.0 s', background: colors.yellow, color: colors.carbon },
-  white: { text: 'Final lap', background: colors.white, color: colors.carbon },
-  chequered: { text: 'Chequered flag', background: colors.surface2, color: colors.text },
+const FLAGS: Record<FlagKind, { background: string; color: string }> = {
+  yellow: { background: colors.yellow, color: colors.carbon },
+  white: { background: colors.white, color: colors.carbon },
+  chequered: { background: colors.surface2, color: colors.text },
 };
 
 /** Race flag banner. Renders an empty slot of the same height when there is no flag. */
-export function FlagBanner({ flag }: { flag: FlagKind | null }) {
+export function FlagBanner({ flag, penaltyMs = 1000 }: { flag: FlagKind | null; penaltyMs?: number }) {
+  const m = useMessages();
   if (flag === null) return <View style={styles.slot} />;
-  const { text, background, color } = FLAGS[flag];
+  const { background, color } = FLAGS[flag];
+  const text = flag === 'yellow' ? m.flags.yellow(seconds(penaltyMs)) : m.flags[flag];
   return (
     <View
       style={[styles.slot, styles.banner, { backgroundColor: background }]}

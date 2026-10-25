@@ -16,6 +16,7 @@ import { get, ref, remove, runTransaction, set } from 'firebase/database';
 import { create } from 'zustand';
 
 import { normalizeNick } from '@/game';
+import { AppError as AccountError, type ErrorKind } from '@/i18n';
 import { mergeRecent, usePractice, type SessionSummary, type SoloTotals } from '@/store/practice';
 import { careerOf, EMPTY_CAREER, useCareer, type Career } from '@/store/career';
 import { useProfile } from '@/store/profile';
@@ -43,7 +44,8 @@ export const useAccount = create<AccountState>(() => ({
   needsNick: false,
 }));
 
-export class AccountError extends Error {}
+/** Account errors are shown in the player's language. */
+export { AccountError };
 
 /** Firebase keys cannot contain . # $ [ ] / so nicks are stored under a cleaned-up, lowercase key. */
 export function nickKey(nick: string): string {
@@ -190,7 +192,7 @@ async function claimNick(nick: string, uid: string) {
   const result = await runTransaction(nickRef(nick), (current) =>
     current === null || current === uid ? uid : undefined,
   );
-  if (!result.committed) throw new AccountError(`The nick “${nick}” is taken. Pick another one.`);
+  if (!result.committed) throw new AccountError('nickTaken', nick);
 }
 
 async function releaseNick(nick: string) {
@@ -199,9 +201,9 @@ async function releaseNick(nick: string) {
 
 function validNick(input: string): string {
   const nick = normalizeNick(input);
-  if (!nick) throw new AccountError('Enter a nick.');
+  if (!nick) throw new AccountError('nickEmpty');
   if (nickKey(nick).replace(/_/g, '').length === 0)
-    throw new AccountError('Use letters or numbers in your nick.');
+    throw new AccountError('nickChars');
   return nick;
 }
 
@@ -213,7 +215,7 @@ export async function createAccount(nickInput: string, email: string, password: 
     const user = firebase().auth.currentUser!;
     const owner = (await get(nickRef(nick))).val();
     if (owner !== null && owner !== uid)
-      throw new AccountError(`The nick “${nick}” is taken. Pick another one.`);
+      throw new AccountError('nickTaken', nick);
     // Linking keeps the guest's uid, so everything driven as a guest stays with the account.
     await linkWithCredential(user, EmailAuthProvider.credential(email.trim(), password));
     // The token must say "password" (not "anonymous") before the rules accept the nick.
@@ -271,7 +273,7 @@ export async function continueWithGoogle() {
 export async function chooseNick(nickInput: string) {
   const nick = validNick(nickInput);
   const { uid } = useAccount.getState();
-  if (!uid) throw new AccountError('Sign in first.');
+  if (!uid) throw new AccountError('signInFirst');
   const previous = useProfile.getState().nick;
   try {
     await claimNick(nick, uid);
@@ -319,23 +321,23 @@ export async function deleteAccount() {
 function toAccountError(error: unknown): Error {
   if (error instanceof AccountError) return error;
   const code = error instanceof FirebaseError ? error.code : '';
-  const messages: Record<string, string> = {
-    'auth/email-already-in-use': 'An account with this e-mail already exists. Sign in instead.',
-    'auth/credential-already-in-use': 'This sign-in is already used by another account. Sign in instead.',
-    'auth/invalid-email': 'That e-mail address does not look right.',
-    'auth/weak-password': 'Use a password with at least 6 characters.',
-    'auth/missing-password': 'Enter your password.',
-    'auth/invalid-credential': 'Wrong e-mail or password.',
-    'auth/wrong-password': 'Wrong e-mail or password.',
-    'auth/user-not-found': 'Wrong e-mail or password.',
-    'auth/too-many-requests': 'Too many attempts. Wait a moment and try again.',
-    'auth/popup-closed-by-user': 'Google sign-in was closed before it finished.',
-    'auth/popup-blocked': 'The browser blocked the Google window. Allow pop-ups and try again.',
-    'auth/network-request-failed': 'No connection. Check your internet and try again.',
-    'auth/requires-recent-login': 'For safety, sign out, sign in again and then delete the account.',
-    'auth/operation-not-allowed': 'This sign-in method is not turned on in Firebase yet.',
-    'auth/unauthorized-domain': 'This website is not on the Firebase list of allowed domains yet.',
-    PERMISSION_DENIED: 'The server refused the change. Try again later.',
+  const kinds: Record<string, ErrorKind> = {
+    'auth/email-already-in-use': 'emailInUse',
+    'auth/credential-already-in-use': 'credentialInUse',
+    'auth/invalid-email': 'invalidEmail',
+    'auth/weak-password': 'weakPassword',
+    'auth/missing-password': 'missingPassword',
+    'auth/invalid-credential': 'wrongCredentials',
+    'auth/wrong-password': 'wrongCredentials',
+    'auth/user-not-found': 'wrongCredentials',
+    'auth/too-many-requests': 'tooManyRequests',
+    'auth/popup-closed-by-user': 'popupClosed',
+    'auth/popup-blocked': 'popupBlocked',
+    'auth/network-request-failed': 'network',
+    'auth/requires-recent-login': 'recentLogin',
+    'auth/operation-not-allowed': 'methodOff',
+    'auth/unauthorized-domain': 'unauthorizedDomain',
+    PERMISSION_DENIED: 'refused',
   };
-  return new AccountError(messages[code] ?? 'Something went wrong. Try again.');
+  return new AccountError(kinds[code] ?? 'generic');
 }

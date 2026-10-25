@@ -5,12 +5,15 @@ import { Avatar } from '@/components/avatar';
 import { Card, Screen, SectionLabel } from '@/components/ui';
 import { Wordmark } from '@/components/wordmark';
 import { formatLapTime, getTrack, trackLabel, TRACKS } from '@/game';
-import { formatWhen, MODE_SHORT } from '@/labels';
+import { useLanguage, useMessages } from '@/i18n';
+import { formatWhen } from '@/labels';
 import { usePractice } from '@/store/practice';
 import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
 
 export default function Home() {
+  const m = useMessages();
+  const language = useLanguage();
   const setup = usePractice((state) => state.setup);
   const recent = usePractice((state) => state.recent);
   const updateSetup = usePractice((state) => state.updateSetup);
@@ -34,7 +37,7 @@ export default function Home() {
       <View style={styles.header}>
         <Wordmark />
         <Link href="/profile" asChild>
-          <Pressable accessibilityRole="button" accessibilityLabel="Profile">
+          <Pressable accessibilityRole="button" accessibilityLabel={m.home.profile}>
             <Avatar />
           </Pressable>
         </Link>
@@ -42,26 +45,24 @@ export default function Home() {
 
       <Card style={styles.quick}>
         <View style={styles.quickTop}>
-          <Text style={label}>Quick start · last setup</Text>
+          <Text style={label}>{m.home.quickStart}</Text>
           <Link href="/practice" style={styles.change}>
-            Change ›
+            {m.home.change}
           </Link>
         </View>
         <Text style={styles.quickTitle}>
           {trackLabel(track)} ·{' '}
-          {setup.lengthKind === 'time'
-            ? `${setup.minutes} min`
-            : `${setup.laps} ${setup.laps === 1 ? 'lap' : 'laps'}`}
+          {setup.lengthKind === 'time' ? m.common.minutes(setup.minutes) : m.common.laps(setup.laps)}
         </Text>
         <View style={styles.quickStats}>
-          <Stat title="Mode" value={MODE_SHORT[setup.mode]} />
+          <Stat title={m.home.mode} value={m.modesShort[setup.mode]} />
           <Stat
-            title="Personal best"
+            title={m.home.personalBest}
             value={best === undefined ? '—' : formatLapTime(best)}
             color={colors.green}
           />
           <Stat
-            title="Last session"
+            title={m.home.lastSession}
             value={lastSession ? formatLapTime(lastSession.bestMs) : '—'}
             color={colors.purple}
           />
@@ -70,12 +71,12 @@ export default function Home() {
           accessibilityRole="button"
           onPress={start}
           style={({ pressed }) => [styles.start, pressed && styles.pressed]}>
-          <Text style={styles.startText}>START</Text>
+          <Text style={styles.startText}>{m.home.start}</Text>
         </Pressable>
       </Card>
 
-      <SectionLabel right={<Text style={styles.small}>best lap · {MODE_SHORT[setup.mode]}</Text>}>
-        Your tracks
+      <SectionLabel right={<Text style={styles.small}>{m.home.bestLapFor(m.modesShort[setup.mode])}</Text>}>
+        {m.home.yourTracks}
       </SectionLabel>
       <View style={styles.tracks}>
         {TRACKS.map((t) => {
@@ -84,7 +85,7 @@ export default function Home() {
             <Pressable
               key={t.id}
               accessibilityRole="button"
-              accessibilityLabel={`${t.name}, ${t.size} by ${t.size}. Open in practice`}
+              accessibilityLabel={m.home.openTrack(t.name, t.size)}
               onPress={() => {
                 updateSetup({ track: t.id });
                 router.navigate('/practice');
@@ -104,10 +105,10 @@ export default function Home() {
         })}
       </View>
 
-      <SectionLabel>Recent sessions</SectionLabel>
+      <SectionLabel>{m.home.recentSessions}</SectionLabel>
       <Card style={styles.list}>
         {recent.length === 0 ? (
-          <Text style={styles.empty}>No sessions yet. Press START above to drive your first one.</Text>
+          <Text style={styles.empty}>{m.home.noSessions}</Text>
         ) : (
           recent.slice(0, 3).map((s, i) => {
             const t = getTrack(s.track)!;
@@ -117,13 +118,12 @@ export default function Home() {
                 <View style={styles.rowText}>
                   <Text style={styles.rowTitle}>
                     {trackLabel(t)}
-                    {s.mode === 'descending' ? ' · Countdown' : ''} · {s.lapsDriven}{' '}
-                    {s.lapsDriven === 1 ? 'lap' : 'laps'}
-                    {s.minutes ? ` in ${s.minutes} min` : ''}
+                    {s.mode === 'descending' ? m.home.countdownSuffix : ''} · {m.common.laps(s.lapsDriven)}
+                    {s.minutes ? m.home.inMinutes(s.minutes) : ''}
                   </Text>
                   <Text style={styles.rowMeta}>
-                    {formatWhen(s.finishedAt)} · {s.mistakes === 1 ? '1 mistake' : `${s.mistakes} mistakes`}
-                    {s.personalBest ? ' · PB' : ''}
+                    {formatWhen(m, language, s.finishedAt)} · {m.common.mistakes(s.mistakes)}
+                    {s.personalBest ? m.home.pb : ''}
                   </Text>
                 </View>
                 <Text style={[styles.rowTime, tabular, { color: time }]}>{formatLapTime(s.bestMs)}</Text>
@@ -136,8 +136,8 @@ export default function Home() {
       <Link href="/rooms" asChild>
         <Pressable accessibilityRole="button" style={styles.roomCard}>
           <View style={styles.roomText}>
-            <Text style={styles.roomTitle}>Private room</Text>
-            <Text style={styles.roomMeta}>Race friends live with a room code</Text>
+            <Text style={styles.roomTitle}>{m.home.privateRoom}</Text>
+            <Text style={styles.roomMeta}>{m.home.privateRoomMeta}</Text>
           </View>
           <Text style={styles.roomGo}>›</Text>
         </Pressable>
@@ -145,9 +145,10 @@ export default function Home() {
 
       <View style={styles.soon}>
         <Text style={styles.soonText}>
-          <Text style={styles.soonStrong}>Daily race</Text> · same board for everyone
+          <Text style={styles.soonStrong}>{m.home.dailyRace}</Text>
+          {m.home.dailyRaceMeta}
         </Text>
-        <Text style={[label, styles.small]}>Soon</Text>
+        <Text style={[label, styles.small]}>{m.home.soon}</Text>
       </View>
     </Screen>
   );

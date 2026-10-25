@@ -1,6 +1,7 @@
 import { get, onDisconnect, onValue, ref, remove, runTransaction, set, update } from 'firebase/database';
 
 import { generateRoomCode, MIN_PLAYERS, randomSeed, type DriverProgress, type RoomRules } from '@/game';
+import { AppError as RoomError } from '@/i18n';
 
 import { useCareer } from '@/store/career';
 
@@ -36,7 +37,8 @@ export const START_DELAY_MS = 5000;
 const roomRef = (code: string) => ref(firebase().db, `rooms/${code}`);
 const playerRef = (code: string, uid: string) => ref(firebase().db, `rooms/${code}/players/${uid}`);
 
-export class RoomError extends Error {}
+/** Room errors are shown in the player's language. */
+export { RoomError };
 
 const currentRating = () => Math.round(useCareer.getState().rating);
 
@@ -46,7 +48,7 @@ const SERVER_TIMEOUT_MS = 12000;
 function withTimeout<T>(promise: Promise<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const id = setTimeout(
-      () => reject(new RoomError('No connection to the race server. Check your internet and try again.')),
+      () => reject(new RoomError('noServer')),
       SERVER_TIMEOUT_MS,
     );
     promise.then(
@@ -83,7 +85,7 @@ async function createRoomNow(nick: string, rules: RoomRules): Promise<string> {
       return code;
     }
   }
-  throw new RoomError('Could not create a room. Try again.');
+  throw new RoomError('roomCreate');
 }
 
 export function joinRoom(code: string, nick: string): Promise<void> {
@@ -94,11 +96,11 @@ async function joinRoomNow(code: string, nick: string): Promise<void> {
   const uid = await signIn();
   const snap = await get(roomRef(code));
   const room = snap.val() as Room | null;
-  if (!room) throw new RoomError(`No room with code ${code}.`);
+  if (!room) throw new RoomError('roomNotFound', code);
   const players = room.players ?? {};
   if (players[uid]) return;
-  if (room.status !== 'lobby') throw new RoomError('This race has already started.');
-  if (Object.keys(players).length >= room.rules.maxPlayers) throw new RoomError('This room is full.');
+  if (room.status !== 'lobby') throw new RoomError('roomStarted');
+  if (Object.keys(players).length >= room.rules.maxPlayers) throw new RoomError('roomFull');
   await set(playerRef(code, uid), {
     name: nick,
     joinedAt: serverNow(),
@@ -115,7 +117,7 @@ export function watchRoom(code: string, onChange: (room: Room | null) => void): 
 /** Host only. Everyone gets the same seed and counts down to the same server time. */
 export async function startRace(code: string, room: Room): Promise<void> {
   const players = Object.keys(room.players ?? {});
-  if (players.length < MIN_PLAYERS) throw new RoomError(`At least ${MIN_PLAYERS} drivers are needed.`);
+  if (players.length < MIN_PLAYERS) throw new RoomError('minDrivers', String(MIN_PLAYERS));
   const resets: Record<string, unknown> = {};
   for (const uid of players) {
     resets[`players/${uid}/crossings`] = null;

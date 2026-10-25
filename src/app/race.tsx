@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,7 +40,8 @@ import {
   type Session,
   type Track,
 } from '@/game';
-import { MODE_SHORT } from '@/labels';
+import { useMessages } from '@/i18n';
+import { goBack } from '@/navigation';
 import { usePractice } from '@/store/practice';
 import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
@@ -86,6 +87,7 @@ export default function RaceScreen() {
 }
 
 function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceLength }) {
+  const m = useMessages();
   const key = recordKey(track.id, mode);
   const personalBest = useRecords((state) => state.bestLaps[key] ?? null);
   const submitLap = useRecords((state) => state.submitLap);
@@ -247,7 +249,7 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
 
   const endOrExit = () => {
     if (session.laps.length > 0) setPhase('summary');
-    else router.back();
+    else goBack();
   };
 
   if (phase === 'summary') {
@@ -276,8 +278,8 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
   const left = timeLeft(session, raceNow);
   const lapText =
     length.kind === 'laps'
-      ? `Lap ${lapNumber} / ${length.laps}`
-      : `Lap ${lapNumber} · ${left === null || left > 0 ? `${formatClock(left ?? 0)} left` : 'Time up'}`;
+      ? m.race.lapOf(lapNumber, length.laps)
+      : m.race.lapTimed(lapNumber, left === null || left > 0 ? m.race.left(formatClock(left ?? 0)) : m.race.timeUp);
 
   const liveSession = beforeStart ? null : liveDeltaMs(lap.splits, refs.session, time);
   const livePersonal = beforeStart ? null : liveDeltaMs(lap.splits, refs.personal, time);
@@ -294,9 +296,9 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
           <Pressable
             onPress={endOrExit}
             accessibilityRole="button"
-            accessibilityLabel={session.laps.length > 0 ? 'End session' : 'Exit to menu'}
+            accessibilityLabel={session.laps.length > 0 ? m.race.endA11y : m.race.exitA11y}
             hitSlop={12}>
-            <Text style={styles.exit}>{session.laps.length > 0 ? '‹ End' : '‹ Exit'}</Text>
+            <Text style={styles.exit}>{session.laps.length > 0 ? m.race.end : m.race.exit}</Text>
           </Pressable>
           <Text style={label}>
             {lapText} · {track.size}×{track.size} {track.name}
@@ -305,15 +307,15 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
 
         <FlagBanner flag={flag} />
 
-        <Text style={[styles.timer, tabular]} accessibilityLabel={`Lap time ${formatLapTime(time)}`}>
+        <Text style={[styles.timer, tabular]} accessibilityLabel={m.race.lapTimeA11y(formatLapTime(time))}>
           {formatLapTime(time)}
         </Text>
 
         <View style={styles.stats}>
-          <LiveDelta title="Δ session best" delta={liveSession} reference={refs.session} />
-          <LiveDelta title="Δ personal best" delta={livePersonal} reference={refs.personal} />
+          <LiveDelta title={m.race.deltaSessionBest} delta={liveSession} reference={refs.session} />
+          <LiveDelta title={m.race.deltaPersonalBest} delta={livePersonal} reference={refs.personal} />
           <View style={styles.stat}>
-            <Text style={[label, styles.statLabel]}>Penalties</Text>
+            <Text style={[label, styles.statLabel]}>{m.race.penalties}</Text>
             <Text style={[styles.statValue, tabular, lap.mistakes > 0 && { color: colors.yellow }]}>
               {lap.mistakes === 0 ? '0' : `+${lap.mistakes}.0 s`}
             </Text>
@@ -321,12 +323,12 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
         </View>
 
         {phase === 'finish' && result ? (
-          <LapCard result={result} lapNumber={lapNumber} footer="Session complete" />
+          <LapCard result={result} lapNumber={lapNumber} footer={m.race.sessionComplete} />
         ) : (
           <>
             <LastLap result={phase === 'running' ? result : null} lapNumber={session.laps.length} />
             <View style={styles.next}>
-              <Text style={label}>Next</Text>
+              <Text style={label}>{m.race.next}</Text>
               <Text style={[styles.nextValue, tabular]}>{beforeStart ? '–' : target}</Text>
             </View>
 
@@ -335,7 +337,7 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
                 size={track.size}
                 lit={COUNTDOWN_FROM - countdown + 1}
                 green={phase === 'green'}
-                text={phase === 'green' ? 'GO' : String(countdown)}
+                text={phase === 'green' ? m.lights.go : String(countdown)}
               />
             ) : (
               <Board lap={lap} wrongValue={wrongValue} onTap={onTap} />
@@ -362,9 +364,10 @@ function newLap(track: Track, mode: Mode) {
 
 /** Result of the previous lap, shown while the next one is already running. Keeps its height when empty. */
 function LastLap({ result, lapNumber }: { result: LapResult | null; lapNumber: number }) {
+  const m = useMessages();
   if (result === null) return <View style={styles.lastLap} />;
   const timeColor = result.personalBest ? colors.green : result.sessionBest ? colors.purple : colors.text;
-  const tag = result.personalBest ? 'PB' : result.sessionBest && !result.firstLap ? 'Session best' : null;
+  const tag = result.personalBest ? m.race.pb : result.sessionBest && !result.firstLap ? m.race.sessionBest : null;
   return (
     <View style={[styles.lastLap, styles.lastLapFilled]} accessibilityLiveRegion="polite">
       <Text style={[label, styles.statLabel]}>L{lapNumber}</Text>
@@ -380,21 +383,22 @@ function LastLap({ result, lapNumber }: { result: LapResult | null; lapNumber: n
 }
 
 function LapCard({ result, lapNumber, footer }: { result: LapResult; lapNumber: number; footer: string }) {
+  const m = useMessages();
   const timeColor = result.personalBest ? colors.green : result.sessionBest ? colors.purple : colors.text;
   const badge = result.personalBest
-    ? { text: result.deltaPersonal === null ? 'First lap set' : 'Personal best', color: colors.green }
+    ? { text: result.deltaPersonal === null ? m.race.firstLap : m.race.personalBest, color: colors.green }
     : result.sessionBest && !result.firstLap
-      ? { text: 'Session best', color: colors.purple }
+      ? { text: m.race.sessionBest, color: colors.purple }
       : null;
 
   return (
     <View style={styles.result}>
-      <Text style={label}>Lap {lapNumber}</Text>
+      <Text style={label}>{m.race.lap(lapNumber)}</Text>
       <Text style={[styles.resultTime, tabular, { color: timeColor }]}>{formatLapTime(result.lapMs)}</Text>
       {badge && <Text style={[label, { color: badge.color }]}>{badge.text}</Text>}
       <View style={styles.resultRow}>
-        <ResultDelta title="Δ session best" delta={result.deltaSession} />
-        <ResultDelta title="Δ personal best" delta={result.deltaPersonal} />
+        <ResultDelta title={m.race.deltaSessionBest} delta={result.deltaSession} />
+        <ResultDelta title={m.race.deltaPersonalBest} delta={result.deltaPersonal} />
       </View>
       <Text style={styles.footer}>{footer}</Text>
     </View>
@@ -429,28 +433,29 @@ function Summary({
   const bestIndex = sessionBestIndex(session);
   const complete = isComplete(session);
   const mistakes = session.laps.reduce((sum, l) => sum + l.mistakes, 0);
+  const m = useMessages();
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
       {complete && <FlagBanner flag="chequered" />}
       <Text style={[label, styles.summaryMeta]}>
-        {track.size}×{track.size} {track.name} · {MODE_SHORT[mode]}
+        {track.size}×{track.size} {track.name} · {m.modesShort[mode]}
       </Text>
-      <Text style={styles.summaryTitle}>{complete ? 'Session complete' : 'Session ended'}</Text>
+      <Text style={styles.summaryTitle}>{complete ? m.race.sessionComplete : m.race.sessionEnded}</Text>
 
       <View style={styles.summaryStats}>
         <SummaryStat
-          title="Laps"
+          title={m.race.laps}
           value={
             session.length.kind === 'laps'
               ? `${session.laps.length} / ${session.length.laps}`
-              : `${session.laps.length} in ${Math.round(session.length.ms / MINUTE_MS)} min`
+              : m.race.lapsInMinutes(session.laps.length, Math.round(session.length.ms / MINUTE_MS))
           }
         />
-        <SummaryStat title="Total" value={formatLapTime(totalTime(session))} />
-        <SummaryStat title="Best lap" value={best ? formatLapTime(best.ms) : '—'} color={colors.purple} />
+        <SummaryStat title={m.race.total} value={formatLapTime(totalTime(session))} />
+        <SummaryStat title={m.race.bestLap} value={best ? formatLapTime(best.ms) : '—'} color={colors.purple} />
         <SummaryStat
-          title="Mistakes"
+          title={m.race.mistakes}
           value={`${mistakes}`}
           color={mistakes > 0 ? colors.yellow : colors.text}
         />
@@ -474,25 +479,23 @@ function Summary({
               </Text>
               <Text style={[styles.lapMistakes, tabular]}>{l.mistakes > 0 ? `${l.mistakes}×` : ''}</Text>
               <Text style={[styles.lapDelta, tabular, isBest && { color: colors.purple }]}>
-                {isBest ? 'Best' : best ? formatDelta(l.ms - best.ms) : ''}
+                {isBest ? m.common.best : best ? formatDelta(l.ms - best.ms) : ''}
               </Text>
             </View>
           );
         })}
       </View>
 
-      <Text style={styles.legend}>
-        Purple: fastest lap of this session. Green: personal best. Yellow: wrong taps in the lap.
-      </Text>
+      <Text style={styles.legend}>{m.race.legend}</Text>
 
       <Pressable
         onPress={onRestart}
         accessibilityRole="button"
         style={({ pressed }) => [styles.primary, pressed && { opacity: 0.85 }]}>
-        <Text style={styles.primaryText}>RACE AGAIN</Text>
+        <Text style={styles.primaryText}>{m.race.raceAgain}</Text>
       </Pressable>
-      <Pressable onPress={() => router.back()} accessibilityRole="button" style={styles.secondary}>
-        <Text style={styles.secondaryText}>Back to menu</Text>
+      <Pressable onPress={goBack} accessibilityRole="button" style={styles.secondary}>
+        <Text style={styles.secondaryText}>{m.race.backToMenu}</Text>
       </Pressable>
     </ScrollView>
   );

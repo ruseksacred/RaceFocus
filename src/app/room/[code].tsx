@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,7 +8,6 @@ import { LiveDelta } from '@/components/delta';
 import { FlagBanner, type FlagKind } from '@/components/flag';
 import {
   applyTap,
-  describeLength,
   formatClock,
   raceStandings,
   roomLength,
@@ -29,7 +28,10 @@ import {
   type RoomRules,
   type Standing,
 } from '@/game';
-import { MODE_SHORT } from '@/labels';
+import { describeError, useMessages, type Messages } from '@/i18n';
+import { describeLength, seconds } from '@/labels';
+import { goBack } from '@/navigation';
+import { inviteUrl, shareInvite, type ShareOutcome } from '@/net/invite';
 import { currentUid, serverNow } from '@/net/firebase';
 import {
   armRetireOnDisconnect,
@@ -39,7 +41,6 @@ import {
   markFinished,
   reportCrossing,
   reportMistakes,
-  RoomError,
   startRace,
   watchRoom,
   type Room,
@@ -55,6 +56,7 @@ const RED_STEP_MS = 700;
 const GREEN_MS = 500;
 
 export default function RoomScreen() {
+  const m = useMessages();
   const { code } = useLocalSearchParams<{ code: string }>();
   const [room, setRoom] = useState<Room | null | undefined>(undefined);
   const uid = currentUid();
@@ -71,12 +73,12 @@ export default function RoomScreen() {
   if (room === null || !uid || !room.players?.[uid]) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
-        <Text style={styles.title}>{room === null ? 'Room closed' : 'Not in this room'}</Text>
+        <Text style={styles.title}>{room === null ? m.room.closed : m.room.notIn}</Text>
         <Text style={[styles.body, styles.centerText]}>
-          {room === null ? 'The host closed this room.' : 'Join with the room code from the Race tab.'}
+          {room === null ? m.room.closedBody : m.room.notInBody}
         </Text>
-        <Pressable onPress={() => router.back()} accessibilityRole="button" style={styles.secondary}>
-          <Text style={styles.secondaryText}>Back</Text>
+        <Pressable onPress={goBack} accessibilityRole="button" style={styles.secondary}>
+          <Text style={styles.secondaryText}>{m.common.back}</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -87,18 +89,22 @@ export default function RoomScreen() {
 }
 
 function RulesLine({ rules }: { rules: RoomRules }) {
+  const m = useMessages();
   const track = getTrack(rules.track)!;
   return (
     <Text style={styles.body}>
-      {trackLabel(track)} · {MODE_SHORT[rules.mode]} · {describeLength(roomLength(rules))} · +
-      {rules.penaltyMs / 1000} s per wrong tap
+      {trackLabel(track)} · {m.modesShort[rules.mode]} · {describeLength(m, roomLength(rules))} ·{' '}
+      {m.common.penaltyPerWrongTap(seconds(rules.penaltyMs))}
     </Text>
   );
 }
 
 function Lobby({ code, room, uid }: { code: string; room: Room; uid: string }) {
+  const m = useMessages();
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [shared, setShared] = useState<ShareOutcome | null>(null);
+  const link = inviteUrl(code);
   const players = Object.entries(room.players ?? {}).sort((a, b) => a[1].joinedAt - b[1].joinedAt);
   const isHost = room.hostId === uid;
   const enough = players.length >= MIN_PLAYERS;
@@ -109,14 +115,19 @@ function Lobby({ code, room, uid }: { code: string; room: Room; uid: string }) {
     try {
       await startRace(code, room);
     } catch (e) {
-      setError(e instanceof RoomError ? e.message : 'Could not start the race. Try again.');
+      setError(describeError(m, e, 'startFailed'));
       setStarting(false);
     }
   };
 
   const leave = async () => {
     await leaveRoom(code, uid, room).catch(() => {});
-    router.back();
+    goBack();
+  };
+
+  const invite = async () => {
+    const me = room.players?.[uid]?.name ?? '';
+    setShared(await shareInvite(link, m.room.inviteTitle, m.room.inviteText(me, code)));
   };
 
   return (
@@ -124,31 +135,42 @@ function Lobby({ code, room, uid }: { code: string; room: Room; uid: string }) {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Pressable onPress={leave} accessibilityRole="button" hitSlop={12}>
-            <Text style={styles.exit}>‹ Leave</Text>
+            <Text style={styles.exit}>{m.room.leave}</Text>
           </Pressable>
-          <Text style={label}>Private room</Text>
+          <Text style={label}>{m.room.privateRoom}</Text>
         </View>
 
         <View style={styles.codeBox}>
-          <Text style={label}>Room code</Text>
+          <Text style={label}>{m.room.roomCode}</Text>
           <Text
             style={[styles.code, tabular]}
             selectable
-            accessibilityLabel={`Room code ${code.split('').join(' ')}`}>
+            accessibilityLabel={m.room.roomCodeA11y(code.split('').join(' '))}>
             {code}
           </Text>
-          <Text style={styles.body}>Share this code with your friends. They join from the Race tab.</Text>
+          <Text style={[styles.body, styles.centerText]}>{m.room.shareBody}</Text>
+          <Pressable
+            onPress={invite}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.invite, pressed && styles.pressed]}>
+            <Text style={styles.inviteText}>{m.room.invite}</Text>
+          </Pressable>
+          {shared === 'shared' && <Text style={styles.shareNote}>{m.room.inviteShared}</Text>}
+          {shared === 'copied' && <Text style={styles.shareNote}>{m.room.inviteCopied}</Text>}
+          {shared === 'failed' && (
+            <Text style={[styles.body, styles.centerText]} selectable>
+              {m.room.inviteFailed(link)}
+            </Text>
+          )}
         </View>
 
         <View style={styles.section}>
-          <Text style={label}>Rules</Text>
+          <Text style={label}>{m.room.rules}</Text>
           <RulesLine rules={room.rules} />
         </View>
 
         <View style={styles.section}>
-          <Text style={label}>
-            Drivers {players.length} / {room.rules.maxPlayers}
-          </Text>
+          <Text style={label}>{m.room.drivers(players.length, room.rules.maxPlayers)}</Text>
           <View style={styles.list}>
             {players.map(([id, p], i) => (
               <View key={id} style={[styles.row, i > 0 && styles.rowBorder]}>
@@ -156,8 +178,8 @@ function Lobby({ code, room, uid }: { code: string; room: Room; uid: string }) {
                 <Text style={styles.rowName} numberOfLines={1}>
                   {p.name}
                 </Text>
-                {id === room.hostId && <Text style={styles.tag}>Host</Text>}
-                {id === uid && <Text style={[styles.tag, styles.tagYou]}>You</Text>}
+                {id === room.hostId && <Text style={styles.tag}>{m.room.host}</Text>}
+                {id === uid && <Text style={[styles.tag, styles.tagYou]}>{m.room.you}</Text>}
               </View>
             ))}
           </View>
@@ -175,12 +197,12 @@ function Lobby({ code, room, uid }: { code: string; room: Room; uid: string }) {
                 (!enough || starting) && styles.disabled,
                 pressed && styles.pressed,
               ]}>
-              <Text style={styles.primaryText}>START RACE</Text>
+              <Text style={styles.primaryText}>{m.room.startRace}</Text>
             </Pressable>
-            {!enough && <Text style={styles.hint}>Waiting for at least one more driver.</Text>}
+            {!enough && <Text style={styles.hint}>{m.room.waitingForDriver}</Text>}
           </>
         ) : (
-          <Text style={styles.hint}>Waiting for the host to start the race…</Text>
+          <Text style={styles.hint}>{m.room.waitingForHost}</Text>
         )}
         {error && <Text style={styles.error}>{error}</Text>}
       </ScrollView>
@@ -206,6 +228,7 @@ interface Driving {
 }
 
 function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }) {
+  const m = useMessages();
   const rules = room.rules;
   const track = getTrack(rules.track)!;
   const numbersPerLap = track.size * track.size;
@@ -349,7 +372,7 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
     // Leaving mid-race counts as a retirement.
     if (room.status === 'racing' && !done) addRace(buildRaceRecord(code, room, uid, standings, true));
     await leaveRoom(code, uid, room).catch(() => {});
-    router.back();
+    goBack();
   };
 
   const mistakes = driving.prevMistakes + driving.lap.mistakes;
@@ -361,8 +384,15 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
   const timeUp = length.kind === 'time' && raceTime >= length.ms;
   const lapText =
     length.kind === 'laps'
-      ? `Lap ${lapNumber} / ${rules.laps}`
-      : `Lap ${lapNumber} · ${timeUp ? (flagTime !== null ? 'Last lap' : 'Time up') : `${formatClock(length.ms - raceTime)} left`}`;
+      ? m.room.lapOf(lapNumber, rules.laps)
+      : m.room.lapTimed(
+          lapNumber,
+          timeUp
+            ? flagTime !== null
+              ? m.room.lastLap
+              : m.room.timeUp
+            : m.room.left(formatClock(length.ms - raceTime)),
+        );
 
   // This driver's current lap: its clock, and the live delta to their race best and personal best.
   const lapNow = started ? elapsedMs(driving.lap, raceReal - driving.lapStartReal) : 0;
@@ -395,7 +425,7 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
   const lit = green
     ? 3
     : Math.max(0, Math.min(3, Math.ceil((GREEN_MS + 3 * RED_STEP_MS - toGo) / RED_STEP_MS)));
-  const lightsText = green ? 'GO' : lit === 0 ? 'Get ready' : String(4 - lit);
+  const lightsText = green ? m.lights.go : lit === 0 ? m.lights.getReady : String(4 - lit);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -404,45 +434,45 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
           <Pressable
             onPress={leave}
             accessibilityRole="button"
-            accessibilityLabel="Retire and leave"
+            accessibilityLabel={m.room.retireA11y}
             hitSlop={12}>
-            <Text style={styles.exit}>‹ Retire</Text>
+            <Text style={styles.exit}>{m.room.retire}</Text>
           </Pressable>
           <Text style={label}>
             {lapText} · {trackLabel(track)}
           </Text>
         </View>
 
-        <FlagBanner flag={flag} />
+        <FlagBanner flag={flag} penaltyMs={rules.penaltyMs} />
 
         <View style={styles.raceTop}>
           <View>
-            <Text style={[label, styles.small]}>Position</Text>
+            <Text style={[label, styles.small]}>{m.room.position}</Text>
             <Text style={[styles.position, tabular]}>
               P{me.position}
               <Text style={styles.positionOf}> / {active.length}</Text>
             </Text>
           </View>
           <View style={styles.raceTimer}>
-            <Text style={[label, styles.small]}>Race time</Text>
+            <Text style={[label, styles.small]}>{m.room.raceTime}</Text>
             <Text style={[styles.timer, tabular]}>{formatLapTime(raceTime)}</Text>
           </View>
         </View>
 
         <View style={styles.deltas}>
           <View style={styles.gap}>
-            <Text style={[label, styles.small]}>Lap time</Text>
+            <Text style={[label, styles.small]}>{m.room.lapTime}</Text>
             <Text style={[styles.lapTime, tabular]}>{formatLapTime(lapNow)}</Text>
           </View>
-          <LiveDelta title="Δ race best" delta={liveRace} reference={driving.refRace} />
-          <LiveDelta title="Δ personal best" delta={livePersonal} reference={driving.refPersonal} />
+          <LiveDelta title={m.room.deltaRaceBest} delta={liveRace} reference={driving.refRace} />
+          <LiveDelta title={m.room.deltaPersonalBest} delta={livePersonal} reference={driving.refPersonal} />
         </View>
 
         <View style={styles.gaps}>
-          <Gap title="Gap to P1" value={me.position === 1 ? 'Leader' : me.gapToLeader} />
-          <Gap title="Gap ahead" value={me.position === 1 ? '—' : me.gapToAhead} />
+          <Gap title={m.room.gapToP1} value={me.position === 1 ? m.common.leader : me.gapToLeader} />
+          <Gap title={m.room.gapAhead} value={me.position === 1 ? '—' : me.gapToAhead} />
           <View style={styles.gap}>
-            <Text style={[label, styles.small]}>Penalties</Text>
+            <Text style={[label, styles.small]}>{m.room.penalties}</Text>
             <Text style={[styles.gapValue, tabular, mistakes > 0 && { color: colors.yellow }]}>
               {mistakes === 0 ? '0' : `+${((mistakes * rules.penaltyMs) / 1000).toFixed(1)} s`}
             </Text>
@@ -452,7 +482,7 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
         {started ? (
           <>
             <View style={styles.next}>
-              <Text style={label}>Next</Text>
+              <Text style={label}>{m.room.next}</Text>
               <Text style={[styles.nextValue, tabular]}>{driving.lap.targets[driving.lap.nextIndex]}</Text>
             </View>
             <Board lap={driving.lap} wrongValue={wrongValue} onTap={onTap} />
@@ -485,9 +515,9 @@ function Gap({ title, value }: { title: string; value: number | null | string })
   );
 }
 
-function progressText(s: Standing, numbersPerLap: number, laps: number | null): string {
-  if (s.retired) return 'Retired';
-  if (s.finished) return 'Finished';
+function progressText(m: Messages, s: Standing, numbersPerLap: number, laps: number | null): string {
+  if (s.retired) return m.room.retired;
+  if (s.finished) return m.room.finished;
   return `L${s.lap}${laps === null ? '' : `/${laps}`} · ${s.cleared % numbersPerLap}/${numbersPerLap}`;
 }
 
@@ -502,17 +532,18 @@ function LiveTable({
   numbersPerLap: number;
   laps: number | null;
 }) {
+  const m = useMessages();
   return (
-    <View style={[styles.list, styles.liveTable]} accessibilityLabel="Live standings">
+    <View style={[styles.list, styles.liveTable]} accessibilityLabel={m.room.liveStandings}>
       {standings.map((s, i) => (
         <View key={s.id} style={[styles.liveRow, i > 0 && styles.rowBorder, s.id === uid && styles.meRow]}>
           <Text style={[styles.livePos, tabular]}>P{s.position}</Text>
           <Text style={[styles.liveName, s.retired && styles.retired]} numberOfLines={1}>
             {s.name}
           </Text>
-          <Text style={[styles.liveProgress, tabular]}>{progressText(s, numbersPerLap, laps)}</Text>
+          <Text style={[styles.liveProgress, tabular]}>{progressText(m, s, numbersPerLap, laps)}</Text>
           <Text style={[styles.liveGap, tabular]}>
-            {s.position === 1 ? 'Leader' : s.gapToLeader === null ? '—' : formatDelta(s.gapToLeader)}
+            {s.position === 1 ? m.common.leader : s.gapToLeader === null ? '—' : formatDelta(s.gapToLeader)}
           </Text>
         </View>
       ))}
@@ -548,28 +579,29 @@ function Results({
   const myLaps = lapsById.get(uid) ?? [];
   const accuracy = me.cleared + me.mistakes === 0 ? 1 : me.cleared / (me.cleared + me.mistakes);
   const isHost = room.hostId === uid;
+  const m = useMessages();
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
         <FlagBanner flag={allDone ? 'chequered' : me.retired ? null : 'chequered'} />
         <Text style={[label, styles.resultsMeta]}>
-          Room {code} · {trackLabel(getTrack(room.rules.track)!)} · {describeLength(roomLength(room.rules))}
+          {m.room.resultsMeta(
+            code,
+            trackLabel(getTrack(room.rules.track)!),
+            describeLength(m, roomLength(room.rules)),
+          )}
         </Text>
         <Text style={styles.title}>
-          {me.retired
-            ? 'You retired'
-            : allDone
-              ? `You finished P${me.position}`
-              : 'Finished · others still racing'}
+          {me.retired ? m.room.youRetired : allDone ? m.room.youFinished(me.position) : m.room.othersRacing}
         </Text>
 
         <View style={[styles.list, styles.resultsTable]}>
           <View style={[styles.resultRow, styles.resultHead]}>
-            <Text style={[styles.resPos, styles.headText]}>Pos</Text>
-            <Text style={[styles.resName, styles.headText]}>Driver</Text>
-            <Text style={[styles.resTime, styles.headText]}>Time</Text>
-            <Text style={[styles.resBest, styles.headText]}>Best lap</Text>
+            <Text style={[styles.resPos, styles.headText]}>{m.room.pos}</Text>
+            <Text style={[styles.resName, styles.headText]}>{m.room.driver}</Text>
+            <Text style={[styles.resTime, styles.headText]}>{m.room.time}</Text>
+            <Text style={[styles.resBest, styles.headText]}>{m.room.bestLap}</Text>
           </View>
           {standings.map((s) => {
             const best = bestById.get(s.id) ?? null;
@@ -577,7 +609,7 @@ function Results({
               s.finished && winner && s.id !== winner.id && s.lapsDown === 0
                 ? s.totalMs! - winner.totalMs!
                 : null;
-            const behind = s.lapsDown > 0 ? `+${s.lapsDown} ${s.lapsDown === 1 ? 'lap' : 'laps'}` : null;
+            const behind = s.lapsDown > 0 ? m.common.lapsDown(s.lapsDown) : null;
             return (
               <View key={s.id} style={[styles.resultRow, styles.rowBorder, s.id === uid && styles.meRow]}>
                 <Text style={[styles.resPos, tabular]}>{s.retired ? 'DNF' : `P${s.position}`}</Text>
@@ -585,9 +617,7 @@ function Results({
                   <Text style={styles.rowName} numberOfLines={1}>
                     {s.name}
                   </Text>
-                  <Text style={styles.resMeta}>
-                    {s.mistakes} {s.mistakes === 1 ? 'mistake' : 'mistakes'}
-                  </Text>
+                  <Text style={styles.resMeta}>{m.common.mistakes(s.mistakes)}</Text>
                 </View>
                 <View style={styles.resTime}>
                   <Text style={[styles.resValue, tabular]}>
@@ -595,7 +625,13 @@ function Results({
                   </Text>
                   <Text style={[styles.resMeta, tabular]}>
                     {behind ??
-                      (gap !== null ? formatDelta(gap) : s.finished ? 'Winner' : s.retired ? '' : 'racing')}
+                      (gap !== null
+                        ? formatDelta(gap)
+                        : s.finished
+                          ? m.common.winner
+                          : s.retired
+                            ? ''
+                            : m.room.racing)}
                   </Text>
                 </View>
                 <Text
@@ -611,21 +647,21 @@ function Results({
             );
           })}
         </View>
-        <Text style={styles.legend}>Purple: fastest lap of the race.</Text>
+        <Text style={styles.legend}>{m.room.fastestLegend}</Text>
 
         <View style={styles.section}>
-          <Text style={label}>Your race</Text>
+          <Text style={label}>{m.room.yourRace}</Text>
           <View style={styles.myStats}>
-            <MyStat title="Best lap" value={myLaps.length ? formatLapTime(Math.min(...myLaps)) : '—'} />
-            <MyStat title="Accuracy" value={`${Math.round(accuracy * 100)}%`} />
-            <MyStat title="Mistakes" value={String(me.mistakes)} />
+            <MyStat title={m.room.bestLap} value={myLaps.length ? formatLapTime(Math.min(...myLaps)) : '—'} />
+            <MyStat title={m.room.accuracy} value={`${Math.round(accuracy * 100)}%`} />
+            <MyStat title={m.room.mistakes} value={String(me.mistakes)} />
             <MyStat
-              title="Rating"
+              title={m.room.rating}
               value={rating ? `${Math.round(rating.value)}` : '…'}
               note={
                 rating
-                  ? `${rating.change >= 0 ? '+' : '−'}${Math.abs(rating.change)} · beta`
-                  : 'after the finish'
+                  ? `${rating.change >= 0 ? '+' : '−'}${Math.abs(rating.change)} · ${m.room.beta}`
+                  : m.room.afterFinish
               }
               noteColor={rating ? (rating.change >= 0 ? colors.green : colors.red) : colors.muted}
             />
@@ -635,7 +671,10 @@ function Results({
               {myLaps.length <= 10
                 ? // Non-breaking spaces keep each "L3 00:01.44" on one line.
                   myLaps.map((ms, i) => `L${i + 1}\u00A0${formatLapTime(ms)}`).join('   ')
-                : `${myLaps.length} laps · average ${formatLapTime(myLaps.reduce((a, b) => a + b, 0) / myLaps.length)}`}
+                : m.room.lapsAverage(
+                    myLaps.length,
+                    formatLapTime(myLaps.reduce((a, b) => a + b, 0) / myLaps.length),
+                  )}
             </Text>
           )}
         </View>
@@ -645,12 +684,12 @@ function Results({
             onPress={() => backToLobby(code, room).catch(() => {})}
             accessibilityRole="button"
             style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
-            <Text style={styles.primaryText}>NEW RACE</Text>
+            <Text style={styles.primaryText}>{m.room.newRace}</Text>
           </Pressable>
         )}
-        {!isHost && allDone && <Text style={styles.hint}>The host can start a new race in this room.</Text>}
+        {!isHost && allDone && <Text style={styles.hint}>{m.room.hostCanRestart}</Text>}
         <Pressable onPress={onLeave} accessibilityRole="button" style={styles.secondary}>
-          <Text style={styles.secondaryText}>Leave room</Text>
+          <Text style={styles.secondaryText}>{m.room.leaveRoom}</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -706,6 +745,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   code: { fontFamily: fonts.heading, fontSize: 64, lineHeight: 70, letterSpacing: 10, color: colors.text },
+  invite: {
+    marginTop: 8,
+    alignSelf: 'stretch',
+    height: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inviteText: { fontFamily: fonts.heading, fontSize: 20, letterSpacing: 1.5, color: colors.text },
+  shareNote: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.green, textAlign: 'center' },
   list: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
   rowBorder: { borderTopWidth: 1, borderTopColor: colors.line },

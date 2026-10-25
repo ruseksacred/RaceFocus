@@ -6,8 +6,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { useLanguage } from '@/i18n';
 import { startAccountSync } from '@/net/account';
 import { colors } from '@/theme';
+
+/** Links that open a screen directly (e.g. an invite) still get the tabs underneath for Back. */
+export const unstable_settings = { anchor: '(tabs)' };
 
 SplashScreen.preventAutoHideAsync();
 startAccountSync();
@@ -20,6 +24,12 @@ export default function RootLayout() {
     Inter_600SemiBold,
   });
   const ready = loaded || error !== null;
+  const language = useLanguage();
+
+  // Screen readers and browser translation use the page language.
+  useEffect(() => {
+    if (typeof document !== 'undefined') document.documentElement.lang = language;
+  }, [language]);
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();

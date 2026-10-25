@@ -1,20 +1,22 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useMessages, type Messages } from '@/i18n';
 import { colors, fonts } from '@/theme';
 
 import { Icon, type IconName } from './icons';
 
-const TABS: Record<string, { label: string; icon: IconName }> = {
-  index: { label: 'Home', icon: 'home' },
-  practice: { label: 'Practice', icon: 'practice' },
-  rooms: { label: 'Race', icon: 'race' },
-  stats: { label: 'Stats', icon: 'stats' },
-  profile: { label: 'Profile', icon: 'profile' },
+const TABS: Record<string, { label: keyof Messages['tabs']; icon: IconName }> = {
+  index: { label: 'home', icon: 'home' },
+  practice: { label: 'practice', icon: 'practice' },
+  rooms: { label: 'race', icon: 'race' },
+  stats: { label: 'stats', icon: 'stats' },
+  profile: { label: 'profile', icon: 'profile' },
 };
 
 /** Bottom tab bar: icon over label, red bar on top of the active tab. */
 export function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
+  const m = useMessages();
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]} accessibilityRole="tablist">
       {state.routes.map((route, index) => {
@@ -31,10 +33,10 @@ export function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
             onPress={onPress}
             accessibilityRole="tab"
             accessibilityState={{ selected: focused }}
-            accessibilityLabel={tab.label}
+            accessibilityLabel={m.tabs[tab.label]}
             style={[styles.tab, focused && styles.tabActive]}>
             <Icon name={tab.icon} color={color} />
-            <Text style={[styles.label, { color }]}>{tab.label}</Text>
+            <Text style={[styles.label, { color }]}>{m.tabs[tab.label]}</Text>
           </Pressable>
         );
       })}
