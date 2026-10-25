@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Board, StartLights } from '@/components/board';
+import { LiveDelta } from '@/components/delta';
 import { FlagBanner, type FlagKind } from '@/components/flag';
 import {
   applyTap,
@@ -12,6 +13,10 @@ import {
   raceStandings,
   roomLength,
   createLap,
+  elapsedMs,
+  lapTimeMs,
+  liveDeltaMs,
+  WRONG_TAP_PENALTY_MS,
   formatDelta,
   formatLapTime,
   getTrack,
@@ -41,6 +46,7 @@ import {
 } from '@/net/rooms';
 import { buildRaceRecord } from '@/net/race-record';
 import { useCareer } from '@/store/career';
+import { recordKey, useRecords, type BestLap } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
 
 const YELLOW_FLAG_MS = 2000;
@@ -192,6 +198,11 @@ interface Driving {
   prevMistakes: number;
   crossings: number[];
   finished: boolean;
+  /** This driver's fastest lap so far in this race. */
+  raceBest: BestLap | null;
+  /** Reference laps for the live delta, fixed when a lap starts. */
+  refRace: number[] | null;
+  refPersonal: number[] | null;
 }
 
 function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }) {
@@ -201,6 +212,11 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
   const seed = room.seed ?? 'race';
   const startAt = room.startAt ?? serverNow();
   const isHost = room.hostId === uid;
+
+  const key = recordKey(rules.track, rules.mode);
+  // Room laps count as personal bests unless the penalty is lighter than in solo practice.
+  const lapsCountForRecords = rules.penaltyMs >= WRONG_TAP_PENALTY_MS;
+  const submitLap = useRecords((state) => state.submitLap);
 
   const newLap = (index: number) =>
     createLap({ size: track.size, seed: lapSeed(seed, index), mode: rules.mode, penaltyMs: rules.penaltyMs });
@@ -213,6 +229,9 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
     prevMistakes: 0,
     crossings: [],
     finished: false,
+    raceBest: null,
+    refRace: null,
+    refPersonal: useRecords.getState().bestLaps[key]?.splits ?? null,
   }));
   const drivingRef = useRef(driving);
   const [now, setNow] = useState(() => serverNow());
@@ -284,6 +303,16 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
       reportCrossing(code, uid, index, crossing).catch(() => {});
     }
     if (outcome.result === 'finished') {
+      const lapMs = lapTimeMs(outcome.state)!;
+      const thisLap: BestLap = { ms: lapMs, splits: outcome.state.splits };
+      if (lapsCountForRecords || outcome.state.mistakes === 0) submitLap(key, thisLap);
+      const raceBest = d.raceBest === null || lapMs < d.raceBest.ms ? thisLap : d.raceBest;
+      next = {
+        ...next,
+        raceBest,
+        refRace: raceBest.splits,
+        refPersonal: useRecords.getState().bestLaps[key]?.splits ?? null,
+      };
       // Lap race: the set number of laps. Timed race: this lap ended after the chequered flag.
       const withMine = driversOf(room).map((x) => (x.id === uid ? { ...x, crossings: next.crossings } : x));
       const lastLap =
@@ -334,6 +363,11 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
     length.kind === 'laps'
       ? `Lap ${lapNumber} / ${rules.laps}`
       : `Lap ${lapNumber} · ${timeUp ? (flagTime !== null ? 'Last lap' : 'Time up') : `${formatClock(length.ms - raceTime)} left`}`;
+
+  // This driver's current lap: its clock, and the live delta to their race best and personal best.
+  const lapNow = started ? elapsedMs(driving.lap, raceReal - driving.lapStartReal) : 0;
+  const liveRace = started ? liveDeltaMs(driving.lap.splits, driving.refRace, lapNow) : null;
+  const livePersonal = started ? liveDeltaMs(driving.lap.splits, driving.refPersonal, lapNow) : null;
 
   let flag: FlagKind | null = null;
   if (done) flag = 'chequered';
@@ -393,6 +427,15 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
             <Text style={[label, styles.small]}>Race time</Text>
             <Text style={[styles.timer, tabular]}>{formatLapTime(raceTime)}</Text>
           </View>
+        </View>
+
+        <View style={styles.deltas}>
+          <View style={styles.gap}>
+            <Text style={[label, styles.small]}>Lap time</Text>
+            <Text style={[styles.lapTime, tabular]}>{formatLapTime(lapNow)}</Text>
+          </View>
+          <LiveDelta title="Δ race best" delta={liveRace} reference={driving.refRace} />
+          <LiveDelta title="Δ personal best" delta={livePersonal} reference={driving.refPersonal} />
         </View>
 
         <View style={styles.gaps}>
@@ -717,6 +760,8 @@ const styles = StyleSheet.create({
   raceTimer: { alignItems: 'flex-end' },
   timer: { fontFamily: fonts.heading, fontSize: 48, lineHeight: 54, color: colors.text },
   gaps: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  deltas: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 6 },
+  lapTime: { fontFamily: fonts.heading, fontSize: 26, color: colors.text },
   gap: { gap: 1 },
   gapValue: { fontFamily: fonts.heading, fontSize: 24, color: colors.muted },
   next: { flexDirection: 'row', justifyContent: 'center', alignItems: 'baseline', gap: 12, marginTop: 6 },

@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Board, StartLights } from '@/components/board';
+import { deltaColor, LiveDelta } from '@/components/delta';
 import { FlagBanner, type FlagKind } from '@/components/flag';
 import {
   addLap,
@@ -309,8 +310,8 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
         </Text>
 
         <View style={styles.stats}>
-          <Delta title="Δ session best" delta={liveSession} reference={refs.session} />
-          <Delta title="Δ personal best" delta={livePersonal} reference={refs.personal} />
+          <LiveDelta title="Δ session best" delta={liveSession} reference={refs.session} />
+          <LiveDelta title="Δ personal best" delta={livePersonal} reference={refs.personal} />
           <View style={styles.stat}>
             <Text style={[label, styles.statLabel]}>Penalties</Text>
             <Text style={[styles.statValue, tabular, lap.mistakes > 0 && { color: colors.yellow }]}>
@@ -357,34 +358,6 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
 
 function newLap(track: Track, mode: Mode) {
   return createLap({ size: track.size, seed: randomSeed(), mode });
-}
-
-/** Green when faster than the reference, red when slower. */
-function deltaColor(delta: number | null) {
-  if (delta === null || delta === 0) return colors.muted;
-  return delta < 0 ? colors.green : colors.red;
-}
-
-function Delta({
-  title,
-  delta,
-  reference,
-}: {
-  title: string;
-  delta: number | null;
-  reference: number[] | null;
-}) {
-  return (
-    <View style={styles.stat}>
-      <Text style={[label, styles.statLabel]}>{title}</Text>
-      <Text style={[styles.statValue, tabular, { color: deltaColor(delta) }]}>
-        {delta === null ? (reference ? '±0.00' : '—') : formatDelta(delta)}
-      </Text>
-      <Text style={[styles.statCaption, tabular]}>
-        {reference ? formatLapTime(reference.at(-1)!) : 'no lap yet'}
-      </Text>
-    </View>
-  );
 }
 
 /** Result of the previous lap, shown while the next one is already running. Keeps its height when empty. */
