@@ -18,7 +18,7 @@ See `CLAUDE.md` for the full concept and roadmap.
 - Race tab: create a room (track, mode, laps or time, penalty per wrong tap, max drivers) or join one with a 5-letter code and a nick.
 - Timed races: when time is up the leader finishes the lap they are on and takes the chequered flag; everyone else then finishes at the end of their current lap. Order is laps completed, then time; lapped drivers show “+N laps”.
 - Lobby shows the drivers; the host starts the race. Everyone gets the same boards and counts down to the same server time.
-- During the race: position, gap to P1 and to the car ahead (F1-style, at the same number), live standings, flags.
+- During the race: position, gap to P1 and to the car ahead (F1-style, at the same number), live standings, flags, and your own lap time with a live delta to your best lap of the race and your personal best.
 - Results: finishing order, gap to the winner, best laps (fastest of the race in purple), mistakes, accuracy. The host can start a new race in the same room.
 
 Rooms use the Firebase project `racefocus-b709c` (Realtime Database in europe-west1 + anonymous sign-in); its web config is in `src/net/firebase.ts`. When `database.rules.json` changes, paste it into Realtime Database → Rules in the Firebase console (or `npx firebase deploy --only database`). To use another project, set the variables from `.env.example`.
