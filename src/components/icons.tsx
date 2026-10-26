@@ -11,7 +11,8 @@ export type IconName =
   | 'friends'
   | 'calendar'
   | 'bolt'
-  | 'trophy';
+  | 'trophy'
+  | 'bot';
 
 /** Stroke icons for the tab bar and buttons, drawn on a 24 × 24 grid. */
 export function Icon({ name, color, size = 24 }: { name: IconName; color: string; size?: number }) {
@@ -61,6 +62,12 @@ export function Icon({ name, color, size = 24 }: { name: IconName; color: string
         </>
       )}
       {name === 'calendar' && <Path d="M4 6.5h16v14H4zM4 10.5h16M8 3.5v4M16 3.5v4M8.5 15.5l2.2 2 4.8-4.5" {...stroke} />}
+      {name === 'bot' && (
+        <>
+          <Path d="M5 9.5h14v10H5zM12 9.5V6M9 14h.01M15 14h.01M9.5 17h5M2.5 13v3M21.5 13v3" {...stroke} />
+          <Circle cx={12} cy={4.6} r={1.4} {...stroke} />
+        </>
+      )}
       {name === 'bolt' && <Path d="M13 2.5 5 13.5h6l-1 8 8-11h-6z" {...stroke} />}
       {name === 'trophy' && (
         <Path

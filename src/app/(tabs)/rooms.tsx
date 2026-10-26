@@ -18,6 +18,7 @@ export default function RaceHub() {
 
       <View style={styles.tiles}>
         <Tile icon="friends" title={h.friendsTitle} body={h.friendsBody} href="/friends" featured />
+        <Tile icon="bot" title={h.botsTitle} body={h.botsBody} href="/bots" />
         <Tile icon="calendar" title={h.dailyTitle} body={h.dailyBody} soon={h.soon} />
         <Tile icon="bolt" title={h.quickTitle} body={h.quickBody} soon={h.soon} />
         <Tile icon="trophy" title={h.championshipTitle} body={h.championshipBody} soon={h.soon} />
@@ -38,7 +39,7 @@ function Tile({
   title: string;
   body: string;
   /** Where the tile leads; tiles without one are not available yet. */
-  href?: '/friends';
+  href?: '/friends' | '/bots';
   /** "Soon" tag for modes that are not built yet. */
   soon?: string;
   featured?: boolean;
