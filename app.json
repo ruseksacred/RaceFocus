@@ -45,6 +45,12 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "backgroundColor": "#15151E"
+    "backgroundColor": "#15151E",
+    "owner": "ruseksacred",
+    "extra": {
+      "eas": {
+        "projectId": "20f637b4-b597-49f2-b8f3-fa695c2fdabd"
+      }
+    }
   }
 }
