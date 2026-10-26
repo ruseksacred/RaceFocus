@@ -93,7 +93,8 @@ export function watchBoard(
  * Saves a lap from an online race if it beats this driver's record on the board.
  * Does nothing for guests. Never throws: a failed save must not disturb the results screen.
  */
-export async function submitRecord(track: TrackId, mode: Mode, ms: number): Promise<void> {
+export async function submitRecord(track: TrackId, mode: Mode, lapMs: number): Promise<void> {
+  const ms = Math.round(lapMs);
   const uid = accountUid();
   const { nick, helmet } = useProfile.getState();
   if (!uid || !nick) return;

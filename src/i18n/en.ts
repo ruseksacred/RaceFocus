@@ -312,7 +312,10 @@ export const en = {
   leaders: {
     label: 'Leaders',
     title: 'Track records',
-    intro: 'Best laps from online races in private rooms. Solo practice does not count.',
+    intro: (soloCounts: boolean): string =>
+      soloCounts
+        ? 'Best laps from online races and, while testing, from solo practice too.'
+        : 'Best laps from online races in private rooms. Solo practice does not count.',
     track: 'Track',
     mode: 'Mode',
     testData: 'Test data',
