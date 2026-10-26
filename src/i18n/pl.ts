@@ -316,7 +316,10 @@ export const pl: Messages = {
   leaders: {
     label: 'Liderzy',
     title: 'Rekordy torów',
-    intro: 'Najlepsze okrążenia z wyścigów online w prywatnych pokojach. Trening solo się nie liczy.',
+    intro: (soloCounts) =>
+      soloCounts
+        ? 'Najlepsze okrążenia z wyścigów online, a na czas testów także z treningu solo.'
+        : 'Najlepsze okrążenia z wyścigów online w prywatnych pokojach. Trening solo się nie liczy.',
     track: 'Tor',
     mode: 'Tryb',
     testData: 'Dane testowe',

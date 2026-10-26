@@ -10,6 +10,7 @@ import {
   helmetOf,
   MODES,
   rankEntries,
+  SOLO_LAPS_COUNT_FOR_RECORDS,
   testEntries,
   TRACKS,
   type Mode,
@@ -69,7 +70,7 @@ export default function Leaders() {
     <Screen>
       <Text style={label}>{m.leaders.label}</Text>
       <Text style={ui.title}>{m.leaders.title}</Text>
-      <Text style={[ui.body, styles.intro]}>{m.leaders.intro}</Text>
+      <Text style={[ui.body, styles.intro]}>{m.leaders.intro(SOLO_LAPS_COUNT_FOR_RECORDS)}</Text>
 
       <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel={m.leaders.track}>
         {TRACKS.map((t) => (

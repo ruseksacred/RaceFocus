@@ -23,6 +23,7 @@ import {
   lapTimeMs,
   liveDeltaMs,
   MODES,
+  SOLO_LAPS_COUNT_FOR_RECORDS,
   nextTarget,
   lapsLength,
   MINUTE_MS,
@@ -42,6 +43,7 @@ import {
 } from '@/game';
 import { feedback } from '@/feedback';
 import { useMessages } from '@/i18n';
+import { submitRecord } from '@/net/leaderboard';
 import { goBack } from '@/navigation';
 import { usePractice } from '@/store/practice';
 import { recordKey, useRecords } from '@/store/records';
@@ -169,6 +171,8 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
     if (phase !== 'summary' || session.laps.length === 0 || loggedRef.current === session) return;
     loggedRef.current = session;
     const best = sessionBest(session)!;
+    // Temporary while testing: the session's best lap also goes to the leaderboard (kept only if faster).
+    if (SOLO_LAPS_COUNT_FOR_RECORDS) submitRecord(track.id, mode, best.ms);
     addSession({
       id: `${Date.now()}`,
       track: track.id,
