@@ -1,6 +1,17 @@
 import Svg, { Circle, Path } from 'react-native-svg';
 
-export type IconName = 'home' | 'practice' | 'race' | 'stats' | 'leaders' | 'profile' | 'settings';
+export type IconName =
+  | 'home'
+  | 'practice'
+  | 'race'
+  | 'stats'
+  | 'leaders'
+  | 'profile'
+  | 'settings'
+  | 'friends'
+  | 'calendar'
+  | 'bolt'
+  | 'trophy';
 
 /** Stroke icons for the tab bar and buttons, drawn on a 24 × 24 grid. */
 export function Icon({ name, color, size = 24 }: { name: IconName; color: string; size?: number }) {
@@ -40,6 +51,22 @@ export function Icon({ name, color, size = 24 }: { name: IconName; color: string
           <Path d="M3 14a9 9 0 0 1 18 0v2.5a2.5 2.5 0 0 1-2.5 2.5H7a4 4 0 0 1-4-4z" {...stroke} />
           <Path d="M11.5 10.5h9.3M11.5 10.5v2a2 2 0 0 0 2 2h7.3" {...stroke} />
         </>
+      )}
+      {name === 'friends' && (
+        <>
+          <Circle cx={9} cy={8} r={3.2} {...stroke} />
+          <Path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" {...stroke} />
+          <Circle cx={17} cy={9} r={2.5} {...stroke} />
+          <Path d="M16 14.2c2.9.3 5 2.6 5 5.8" {...stroke} />
+        </>
+      )}
+      {name === 'calendar' && <Path d="M4 6.5h16v14H4zM4 10.5h16M8 3.5v4M16 3.5v4M8.5 15.5l2.2 2 4.8-4.5" {...stroke} />}
+      {name === 'bolt' && <Path d="M13 2.5 5 13.5h6l-1 8 8-11h-6z" {...stroke} />}
+      {name === 'trophy' && (
+        <Path
+          d="M7 4h10v4a5 5 0 0 1-10 0zM7 5.5H4a3 3 0 0 0 3.4 4.4M17 5.5h3a3 3 0 0 1-3.4 4.4M12 13v4M8.5 20.5h7M9.5 17h5v3.5h-5z"
+          {...stroke}
+        />
       )}
       {name === 'settings' && (
         <>
