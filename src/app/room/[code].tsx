@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Board, StartLights } from '@/components/board';
-import { LiveDelta } from '@/components/delta';
+import { DeltaBar, LiveDelta } from '@/components/delta';
 import { HelmetAvatar } from '@/components/helmet';
 import { FlagBanner, type FlagKind } from '@/components/flag';
 import {
@@ -487,13 +487,26 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
           </View>
         </View>
 
+        <View style={styles.deltaBar}>
+          <DeltaBar
+            title={m.room.deltaRaceBar}
+            delta={liveRace}
+            reference={driving.refRace}
+            noLap={m.practice.noLapYet}
+          />
+        </View>
+
         <View style={styles.deltas}>
           <View style={styles.gap}>
             <Text style={[label, styles.small]}>{m.room.lapTime}</Text>
             <Text style={[styles.lapTime, tabular]}>{formatLapTime(lapNow)}</Text>
           </View>
-          <LiveDelta title={m.room.deltaRaceBest} delta={liveRace} reference={driving.refRace} />
-          <LiveDelta title={m.room.deltaPersonalBest} delta={livePersonal} reference={driving.refPersonal} />
+          <LiveDelta
+            title={m.room.deltaPersonalBest}
+            delta={livePersonal}
+            reference={driving.refPersonal}
+            noLap={m.practice.noLapYet}
+          />
         </View>
 
         <View style={styles.gaps}>
@@ -854,6 +867,7 @@ const styles = StyleSheet.create({
   raceTimer: { alignItems: 'flex-end' },
   timer: { fontFamily: fonts.heading, fontSize: 48, lineHeight: 54, color: colors.text },
   gaps: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  deltaBar: { marginTop: 8 },
   deltas: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 6 },
   lapTime: { fontFamily: fonts.heading, fontSize: 26, color: colors.text },
   gap: { gap: 1 },

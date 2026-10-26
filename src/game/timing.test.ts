@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { deltaKind, deltaMs, formatDelta, formatLapTime, liveDeltaMs } from './timing';
+import { deltaBarFill, deltaKind, deltaMs, formatDelta, formatLapTime, liveDeltaMs } from './timing';
 
 describe('formatLapTime', () => {
   it('formats minutes, seconds and hundredths', () => {
@@ -66,5 +66,27 @@ describe('liveDeltaMs', () => {
 
   it('matches the lap delta at the finish', () => {
     expect(liveDeltaMs([900, 1900, 2800], reference, 2800)).toBe(-200);
+  });
+});
+
+describe('deltaBarFill', () => {
+  it('fills right when faster and left when slower', () => {
+    expect(deltaBarFill(-500, 10000)).toBe(0.5);
+    expect(deltaBarFill(500, 10000)).toBe(-0.5);
+    expect(deltaBarFill(0, 10000)).toBe(0);
+  });
+
+  it('is empty with no reference or no delta', () => {
+    expect(deltaBarFill(null, 10000)).toBe(0);
+    expect(deltaBarFill(-300, null)).toBe(0);
+  });
+
+  it('clamps to the ends and keeps a sensible range on short and long laps', () => {
+    expect(deltaBarFill(-5000, 10000)).toBe(1);
+    expect(deltaBarFill(9000, 10000)).toBe(-1);
+    // 2 s lap: range is the 0.5 s minimum.
+    expect(deltaBarFill(250, 2000)).toBe(-0.5);
+    // 60 s lap: range is the 3 s maximum.
+    expect(deltaBarFill(-1500, 60000)).toBe(0.5);
   });
 });

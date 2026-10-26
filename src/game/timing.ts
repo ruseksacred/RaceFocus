@@ -62,3 +62,18 @@ export function formatClock(ms: number): string {
   const total = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
+
+/** The delta bar is full at ±10% of the reference lap, but never narrower than ±0.5 s or wider than ±3 s. */
+const DELTA_BAR_SHARE = 0.1;
+const DELTA_BAR_MIN_MS = 500;
+const DELTA_BAR_MAX_MS = 3000;
+
+/**
+ * How far the delta bar fills, from -1 (full left: losing) to 1 (full right: gaining).
+ * A negative delta (faster) fills to the right, like the delta bar in sim racing games.
+ */
+export function deltaBarFill(delta: number | null, referenceLapMs: number | null | undefined): number {
+  if (delta === null || !referenceLapMs) return 0;
+  const range = Math.min(DELTA_BAR_MAX_MS, Math.max(DELTA_BAR_MIN_MS, referenceLapMs * DELTA_BAR_SHARE));
+  return Math.max(-1, Math.min(1, -delta / range)) || 0;
+}
