@@ -10,7 +10,7 @@ const TABS: Record<string, { label: keyof Messages['tabs']; icon: IconName }> = 
   index: { label: 'home', icon: 'home' },
   practice: { label: 'practice', icon: 'practice' },
   rooms: { label: 'race', icon: 'race' },
-  stats: { label: 'stats', icon: 'stats' },
+  leaders: { label: 'leaders', icon: 'leaders' },
   profile: { label: 'profile', icon: 'profile' },
 };
 

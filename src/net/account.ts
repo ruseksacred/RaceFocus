@@ -23,6 +23,7 @@ import { useProfile } from '@/store/profile';
 import { fasterLaps, useRecords, type BestLaps } from '@/store/records';
 
 import { firebase, firebaseConfigured, signIn } from './firebase';
+import { refreshMyRecords, removeMyRecords } from './leaderboard';
 
 /** Who is signed in. Guests have an anonymous Firebase user; accounts have e-mail or Google. */
 export interface AccountState {
@@ -289,6 +290,7 @@ export async function chooseNick(nickInput: string) {
     useProfile.setState({ nick });
     useAccount.setState({ needsNick: false });
     await pushAccount(uid);
+    if (previous && previous !== nick) refreshMyRecords();
   } catch (error) {
     throw toAccountError(error);
   }
@@ -316,6 +318,7 @@ export async function deleteAccount() {
   if (!user || !isAccount(user)) return;
   const nick = useProfile.getState().nick;
   try {
+    await removeMyRecords(user.uid);
     await remove(ref(firebase().db, `users/${user.uid}`));
     if (nick) await releaseNick(nick);
     await deleteUser(user);

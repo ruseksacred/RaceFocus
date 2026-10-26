@@ -13,9 +13,12 @@ interface SettingsState {
   sounds: boolean;
   /** Short vibrations on a wrong tap (yellow flag), lights out and the finish. */
   vibration: boolean;
+  /** Mix made-up drivers into the leaderboards while there are few real records. */
+  testData: boolean;
   setLanguage: (language: LanguageSetting) => void;
   setSounds: (on: boolean) => void;
   setVibration: (on: boolean) => void;
+  setTestData: (on: boolean) => void;
 }
 
 /** App settings. Kept on the device; signing out does not clear them. */
@@ -25,9 +28,11 @@ export const useSettings = create<SettingsState>()(
       language: 'system',
       sounds: true,
       vibration: true,
+      testData: true,
       setLanguage: (language) => set({ language }),
       setSounds: (sounds) => set({ sounds }),
       setVibration: (vibration) => set({ vibration }),
+      setTestData: (testData) => set({ testData }),
     }),
     {
       name: 'racefocus.settings',

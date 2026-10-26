@@ -83,6 +83,31 @@
         }
       }
     },
+    "leaderboards": {
+      "$board": {
+        ".read": "auth != null",
+        ".indexOn": ["ms"],
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider !== 'anonymous' && $board.matches(/^(sprint|street|circuit|endurance)_(ascending|descending)$/)",
+          ".validate": "newData.hasChildren(['name', 'ms', 'at']) && (!data.exists() || newData.child('ms').val() <= data.child('ms').val())",
+          "name": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+          },
+          "ms": {
+            ".validate": "newData.isNumber() && newData.val() >= 450 && newData.val() < 3600000"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "helmet": {
+            ".validate": "newData.isString() && newData.val().length <= 40 && newData.val().matches(/^[a-z]+\\.[a-z]+\\.[a-z]+\\.[0-9]{1,2}$/)"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
     "nicks": {
       "$key": {
         ".read": "auth != null",

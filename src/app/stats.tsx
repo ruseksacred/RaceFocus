@@ -1,8 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card, Screen, SectionLabel, ui } from '@/components/ui';
 import { formatLapTime, getTrack, licenceFor, MODES, trackLabel, TRACKS } from '@/game';
 import { useLanguage, useMessages } from '@/i18n';
+import { goBack } from '@/navigation';
 import { formatWhen } from '@/labels';
 import { useAccount } from '@/net/account';
 import { useCareer } from '@/store/career';
@@ -21,8 +22,13 @@ export default function Stats() {
 
   return (
     <Screen>
-      <Text style={label}>{m.stats.label}</Text>
-      <Text style={ui.title}>{m.stats.title}</Text>
+      <View style={styles.top}>
+        <Pressable onPress={goBack} accessibilityRole="button" hitSlop={12}>
+          <Text style={styles.back}>{m.stats.back}</Text>
+        </Pressable>
+        <Text style={label}>{m.stats.label}</Text>
+      </View>
+      <Text style={[ui.title, styles.title]}>{m.stats.title}</Text>
       <Text style={[ui.body, styles.intro]}>
         {isGuest ? m.stats.guestNote : m.stats.accountNote}
       </Text>
@@ -135,6 +141,9 @@ function Number({ title, value, color = colors.text }: { title: string; value: s
 }
 
 const styles = StyleSheet.create({
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  back: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.muted },
+  title: { marginTop: 8 },
   intro: { marginTop: 4 },
   beta: { fontFamily: fonts.bodySemi, fontSize: 12, color: colors.purple },
   grid: { flexDirection: 'row', flexWrap: 'wrap', padding: 16, rowGap: 14 },

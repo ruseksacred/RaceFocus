@@ -15,6 +15,7 @@ import {
 } from '@/game';
 import { useMessages } from '@/i18n';
 import { goBack } from '@/navigation';
+import { refreshMyRecords } from '@/net/leaderboard';
 import { useProfile } from '@/store/profile';
 import { colors, fonts, label } from '@/theme';
 
@@ -46,6 +47,7 @@ export default function HelmetScreen() {
   };
   const save = () => {
     setHelmet(encodeHelmet(helmet));
+    refreshMyRecords();
     goBack();
   };
 

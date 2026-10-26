@@ -23,6 +23,8 @@ import {
   helmetOf,
   lapSeed,
   lapTimesFromCrossings,
+  countsForRecords,
+  minPlausibleLapMs,
   MIN_PLAYERS,
   penaltyMs,
   trackLabel,
@@ -48,6 +50,7 @@ import {
   watchRoom,
   type Room,
 } from '@/net/rooms';
+import { submitRecord } from '@/net/leaderboard';
 import { buildRaceRecord } from '@/net/race-record';
 import { useCareer } from '@/store/career';
 import { recordKey, useRecords, type BestLap } from '@/store/records';
@@ -376,6 +379,16 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
     if (raceClosed) addRace(buildRaceRecord(code, room, uid, standings));
   }, [raceClosed, room, code, uid, standings, addRace]);
 
+  // Track records come only from online races: this driver's best lap goes to the leaderboard.
+  const submittedRef = useRef(false);
+  const myBestLap = bestLapOf(driving.crossings, numbersPerLap);
+  useEffect(() => {
+    if (!raceClosed || submittedRef.current || myBestLap === null) return;
+    submittedRef.current = true;
+    if (countsForRecords(rules.penaltyMs) && myBestLap >= minPlausibleLapMs(rules.track))
+      submitRecord(rules.track, rules.mode, myBestLap);
+  }, [raceClosed, myBestLap, rules.penaltyMs, rules.track, rules.mode]);
+
   const leave = async () => {
     // Leaving mid-race counts as a retirement.
     if (room.status === 'racing' && !done) addRace(buildRaceRecord(code, room, uid, standings, true));
@@ -535,6 +548,11 @@ function progressText(m: Messages, s: Standing, numbersPerLap: number, laps: num
   if (s.retired) return m.room.retired;
   if (s.finished) return m.room.finished;
   return `L${s.lap}${laps === null ? '' : `/${laps}`} · ${s.cleared % numbersPerLap}/${numbersPerLap}`;
+}
+
+function bestLapOf(crossings: readonly number[], numbersPerLap: number): number | null {
+  const laps = lapTimesFromCrossings(crossings, numbersPerLap);
+  return laps.length ? Math.min(...laps) : null;
 }
 
 /** A driver's helmet in this room (their own design, or the default for their name). */
