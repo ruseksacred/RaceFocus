@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -164,16 +164,17 @@ function StatsCard() {
   return (
     <>
       <SectionLabel>{m.profile.stats}</SectionLabel>
-      <Link href="/stats" asChild>
-        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.statsCard, pressed && styles.pressed]}>
-          <View style={styles.statsRow}>
-            <MiniStat title={m.profile.statRaces} value={races} />
-            <MiniStat title={m.profile.statWins} value={wins} />
-            <MiniStat title={m.profile.statSessions} value={sessions} />
-          </View>
-          <Text style={styles.statsLink}>{m.profile.allStats}</Text>
-        </Pressable>
-      </Link>
+      <Pressable
+        onPress={() => router.push('/stats')}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.statsCard, pressed && styles.pressed]}>
+        <View style={styles.statsRow}>
+          <MiniStat title={m.profile.statRaces} value={races} />
+          <MiniStat title={m.profile.statWins} value={wins} />
+          <MiniStat title={m.profile.statSessions} value={sessions} />
+        </View>
+        <Text style={styles.statsLink}>{m.profile.allStats}</Text>
+      </Pressable>
     </>
   );
 }

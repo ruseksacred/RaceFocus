@@ -133,7 +133,7 @@ export default function Home() {
         )}
       </Card>
 
-      <Link href="/rooms" asChild>
+      <Link href="/friends" asChild>
         <Pressable accessibilityRole="button" style={styles.roomCard}>
           <View style={styles.roomText}>
             <Text style={styles.roomTitle}>{m.home.privateRoom}</Text>
