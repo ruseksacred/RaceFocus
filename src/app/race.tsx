@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Board, StartLights } from '@/components/board';
-import { deltaColor, LiveDelta } from '@/components/delta';
+import { DeltaBar, deltaColor, LiveDelta } from '@/components/delta';
 import { FlagBanner, type FlagKind } from '@/components/flag';
 import {
   addLap,
@@ -326,9 +326,20 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
           {formatLapTime(time)}
         </Text>
 
+        <DeltaBar
+          title={m.race.deltaSessionBar}
+          delta={liveSession}
+          reference={refs.session}
+          noLap={m.practice.noLapYet}
+        />
+
         <View style={styles.stats}>
-          <LiveDelta title={m.race.deltaSessionBest} delta={liveSession} reference={refs.session} />
-          <LiveDelta title={m.race.deltaPersonalBest} delta={livePersonal} reference={refs.personal} />
+          <LiveDelta
+            title={m.race.deltaPersonalBest}
+            delta={livePersonal}
+            reference={refs.personal}
+            noLap={m.practice.noLapYet}
+          />
           <View style={styles.stat}>
             <Text style={[label, styles.statLabel]}>{m.race.penalties}</Text>
             <Text style={[styles.statValue, tabular, lap.mistakes > 0 && { color: colors.yellow }]}>
