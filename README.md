@@ -71,6 +71,14 @@ Then open the site on the phone:
 - **Android (Chrome):** menu ⋮ → **Install app** (or *Add to Home screen*).
 - **iPhone (Safari):** Share → **Add to Home Screen**.
 
+## Android app (APK for testers)
+
+Builds run on Expo's servers (EAS, free plan). `eas.json` has two profiles: `preview` makes an APK to send to testers directly, `production` makes the bundle for Google Play. The Android package id is `com.racefocus.app` (cannot change after the first Play upload).
+
+1. Create a free account at https://expo.dev and a project named `racefocus`; put its project id into `app.json` (`expo.extra.eas.projectId`) and the account name into `expo.owner`.
+2. Either connect the GitHub repo in the project's settings on expo.dev and start a build there (platform Android, profile `preview`), or run `npx eas-cli build -p android --profile preview` on a computer.
+3. Send testers the link to the finished APK; Android asks them to allow installing from this source.
+
 ## Run
 
 ```bash

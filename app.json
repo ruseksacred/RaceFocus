@@ -9,6 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {},
     "android": {
+      "package": "com.racefocus.app",
       "adaptiveIcon": {
         "backgroundColor": "#15151E",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
