@@ -81,24 +81,28 @@ export function createRoom(nick: string, rules: RoomRules): Promise<string> {
 }
 
 async function createRoomNow(nick: string, rules: RoomRules): Promise<string> {
-  const uid = await signIn();
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateRoomCode();
-    const room: Room = {
-      hostId: uid,
-      createdAt: serverNow(),
-      rules,
-      status: 'lobby',
-      players: { [uid]: { name: nick, joinedAt: serverNow(), mistakes: 0, rating: currentRating() } },
-    };
-    const result = await runTransaction(roomRef(code), (current) => (current === null ? room : undefined));
-    if (result.committed) {
-      onDisconnect(roomRef(code)).remove();
-      shareHelmet(code, uid);
-      return code;
-    }
+    if (await createRoomWithCode(code, nick, rules)) return code;
   }
   throw new RoomError('roomCreate');
+}
+
+/** Creates a room under a given code, with this driver as host. False if the code is taken. */
+export async function createRoomWithCode(code: string, nick: string, rules: RoomRules): Promise<boolean> {
+  const uid = await signIn();
+  const room: Room = {
+    hostId: uid,
+    createdAt: serverNow(),
+    rules,
+    status: 'lobby',
+    players: { [uid]: { name: nick, joinedAt: serverNow(), mistakes: 0, rating: currentRating() } },
+  };
+  const result = await runTransaction(roomRef(code), (current) => (current === null ? room : undefined));
+  if (!result.committed) return false;
+  onDisconnect(roomRef(code)).remove();
+  shareHelmet(code, uid);
+  return true;
 }
 
 export function joinRoom(code: string, nick: string): Promise<void> {
@@ -157,6 +161,11 @@ export async function armRetireOnDisconnect(code: string, uid: string): Promise<
 
 export function reportCrossing(code: string, uid: string, index: number, raceMs: number): Promise<void> {
   return set(ref(firebase().db, `rooms/${code}/players/${uid}/crossings/${index}`), Math.round(raceMs));
+}
+
+/** The driver is out of the race (for example a DNF after too many wrong taps). */
+export function reportRetired(code: string, uid: string): Promise<void> {
+  return update(playerRef(code, uid), { retired: true });
 }
 
 export function reportMistakes(code: string, uid: string, mistakes: number): Promise<void> {

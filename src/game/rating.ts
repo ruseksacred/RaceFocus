@@ -2,7 +2,8 @@
  * Multiplayer Elo for room races (beta).
  *
  * Each driver is compared with every other driver in the race: finishing ahead
- * counts as a win, behind as a loss, two retirements as a draw. The change is the
+ * counts as a win, behind as a loss. Between two retirements (or DNFs) the one who got
+ * further wins; equal progress is a draw. The change is the
  * K factor times the average of (score - expected) over all opponents.
  *
  * For now each client computes its own rating; it moves to the server before any
@@ -14,7 +15,10 @@ export const K_FACTOR = 32;
 export interface RatedResult {
   id: string;
   rating: number;
-  /** Finishing position, 1-based. Retired drivers are placed after all finishers. */
+  /**
+   * Finishing position, 1-based. Retired drivers are placed after all finishers,
+   * ordered among themselves by how far they got.
+   */
   position: number;
   retired: boolean;
 }
@@ -24,9 +28,7 @@ export function expectedScore(rating: number, opponent: number): number {
 }
 
 function pairScore(me: RatedResult, other: RatedResult): number {
-  if (me.retired && other.retired) return 0.5;
-  if (me.retired) return 0;
-  if (other.retired) return 1;
+  if (me.retired !== other.retired) return me.retired ? 0 : 1;
   if (me.position === other.position) return 0.5;
   return me.position < other.position ? 1 : 0;
 }

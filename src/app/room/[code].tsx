@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,6 +25,7 @@ import {
   lapTimesFromCrossings,
   countsForRecords,
   minPlausibleLapMs,
+  isDnf,
   MIN_PLAYERS,
   penaltyMs,
   trackLabel,
@@ -46,6 +47,7 @@ import {
   markFinished,
   reportCrossing,
   reportMistakes,
+  reportRetired,
   startRace,
   watchRoom,
   type Room,
@@ -90,7 +92,12 @@ export default function RoomScreen() {
     );
   }
 
-  if (room.status === 'lobby') return <Lobby code={code} room={room} uid={uid} />;
+  if (room.status === 'lobby')
+    return room.rules.quick ? (
+      <QuickLobby code={code} room={room} uid={uid} />
+    ) : (
+      <Lobby code={code} room={room} uid={uid} />
+    );
   return <RoomRace key={room.startAt} code={code} room={room} uid={uid} />;
 }
 
@@ -102,6 +109,74 @@ function RulesLine({ rules }: { rules: RoomRules }) {
       {trackLabel(track)} · {m.modesShort[rules.mode]} · {describeLength(m, roomLength(rules))} ·{' '}
       {m.common.penaltyPerWrongTap(seconds(rules.penaltyMs))}
     </Text>
+  );
+}
+
+/** How long the host of a quick race waits for the matched rival to join. */
+const QUICK_JOIN_TIMEOUT_MS = 15_000;
+
+/** Quick race lobby: no invite, no start button. The host starts as soon as the rival is in. */
+function QuickLobby({ code, room, uid }: { code: string; room: Room; uid: string }) {
+  const m = useMessages();
+  const players = Object.entries(room.players ?? {}).sort((a, b) => a[1].joinedAt - b[1].joinedAt);
+  const isHost = room.hostId === uid;
+  const full = players.length >= 2;
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isHost || !full || startedRef.current) return;
+    startedRef.current = true;
+    startRace(code, room).catch(() => {
+      startedRef.current = false;
+    });
+  }, [isHost, full, code, room]);
+
+  // The rival never showed up: close the room and search again.
+  useEffect(() => {
+    if (!isHost || full) return;
+    const id = setTimeout(() => {
+      leaveRoom(code, uid, room)
+        .catch(() => {})
+        .finally(() => router.replace('/quick'));
+    }, QUICK_JOIN_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  }, [isHost, full, code, uid, room]);
+
+  const leave = async () => {
+    await leaveRoom(code, uid, room).catch(() => {});
+    goBack();
+  };
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Pressable onPress={leave} accessibilityRole="button" hitSlop={12}>
+            <Text style={styles.exit}>{m.room.leave}</Text>
+          </Pressable>
+          <Text style={label}>{m.quick.label}</Text>
+        </View>
+        <Text style={styles.title}>{m.quick.lobbyTitle}</Text>
+        <View style={styles.section}>
+          <Text style={label}>{m.room.rules}</Text>
+          <Text style={styles.body}>{m.quick.rulesText}</Text>
+        </View>
+        <View style={[styles.list, styles.section]}>
+          {players.map(([id, p], i) => (
+            <View key={id} style={[styles.row, i > 0 && styles.rowBorder]}>
+              <HelmetAvatar helmet={helmetOf(p.helmet, p.name)} size={40} />
+              <Text style={styles.rowName} numberOfLines={1}>
+                {p.name}
+              </Text>
+              <Text style={[styles.body, tabular]}>{p.rating ?? '—'}</Text>
+              {id === uid && <Text style={[styles.tag, styles.tagYou]}>{m.room.you}</Text>}
+            </View>
+          ))}
+        </View>
+        <ActivityIndicator color={colors.text} style={styles.quickSpinner} />
+        <Text style={styles.hint}>{full ? m.quick.starting : m.quick.waitingRival}</Text>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -227,6 +302,8 @@ interface Driving {
   prevMistakes: number;
   crossings: number[];
   finished: boolean;
+  /** Out of the race after too many wrong taps (quick races). */
+  dnf: boolean;
   /** This driver's fastest lap so far in this race. */
   raceBest: BestLap | null;
   /** Reference laps for the live delta, fixed when a lap starts. */
@@ -259,6 +336,7 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
     prevMistakes: 0,
     crossings: [],
     finished: false,
+    dnf: false,
     raceBest: null,
     refRace: null,
     refPersonal: useRecords.getState().bestLaps[key]?.splits ?? null,
@@ -294,7 +372,9 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
   const started = raceReal >= 0;
 
   // Standings use the server data for everyone, with this driver's own taps applied right away.
-  const drivers = driversOf(room).map((d) => (d.id === uid ? { ...d, crossings: driving.crossings } : d));
+  const drivers = driversOf(room).map((d) =>
+    d.id === uid ? { ...d, crossings: driving.crossings, retired: d.retired || driving.dnf } : d,
+  );
   const length = roomLength(rules);
   const { standings, flagTime } = raceStandings(
     drivers,
@@ -304,9 +384,13 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
   );
   const me = standings.find((s) => s.id === uid)!;
   // Timed races: this driver may be finished by the leader's flag even before their own check below.
-  const done = driving.finished || me.finished;
   const active = standings.filter((s) => !s.retired);
-  const allDone = active.length > 0 && active.every((s) => s.finished);
+  // Quick race: once the rival is out (DNF or left), the driver still racing has won.
+  const lastOneIn = !!rules.quick && started && active.length === 1 && active[0].id === uid;
+  // In a 1-on-1 the race is decided as soon as at most one driver is left, for both sides.
+  const decided = !!rules.quick && started && active.length <= 1;
+  const done = driving.finished || me.finished || lastOneIn;
+  const allDone = (active.length > 0 && active.every((s) => s.finished)) || decided;
 
   // The host closes the race once every driver still in it has finished.
   useEffect(() => {
@@ -324,8 +408,18 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
     if (outcome.result === 'wrong') {
       setWrongValue(value);
       setYellowAt(real);
+      const total = d.prevMistakes + outcome.state.mistakes;
+      reportMistakes(code, uid, total).catch(() => {});
+      if (isDnf(total, rules)) {
+        // Too many wrong taps: out of the race.
+        feedback('finish');
+        reportRetired(code, uid).catch(() => {});
+        next = { ...next, finished: true, dnf: true };
+        drivingRef.current = next;
+        setDriving(next);
+        return;
+      }
       feedback('wrong');
-      reportMistakes(code, uid, d.prevMistakes + outcome.state.mistakes).catch(() => {});
     }
     if (outcome.result === 'correct') feedback('tap');
     if (outcome.result === 'correct' || outcome.result === 'finished') {
@@ -451,6 +545,9 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
         allDone={allDone}
         rating={savedRace ? { value: rating, change: savedRace.ratingDelta } : null}
         onLeave={leave}
+        onLeaveQuietly={() => {
+          leaveRoom(code, uid, room).catch(() => {});
+        }}
       />
     );
   }
@@ -466,7 +563,7 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
             hitSlop={12}>
             <Text style={styles.exit}>{m.room.retire}</Text>
           </Pressable>
-          <Text style={label}>
+          <Text style={[label, styles.headerLabel]} numberOfLines={2}>
             {lapText} · {trackLabel(track)}
           </Text>
         </View>
@@ -515,7 +612,11 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
           <View style={styles.gap}>
             <Text style={[label, styles.small]}>{m.room.penalties}</Text>
             <Text style={[styles.gapValue, tabular, mistakes > 0 && { color: colors.yellow }]}>
-              {mistakes === 0 ? '0' : `+${((mistakes * rules.penaltyMs) / 1000).toFixed(1)} s`}
+              {rules.dnfMistakes
+                ? m.quick.penaltiesOf(mistakes, rules.dnfMistakes)
+                : mistakes === 0
+                  ? '0'
+                  : `+${((mistakes * rules.penaltyMs) / 1000).toFixed(1)} s`}
             </Text>
           </View>
         </View>
@@ -615,6 +716,7 @@ function Results({
   allDone,
   rating,
   onLeave,
+  onLeaveQuietly,
 }: {
   code: string;
   room: Room;
@@ -624,6 +726,8 @@ function Results({
   allDone: boolean;
   rating: { value: number; change: number } | null;
   onLeave: () => void;
+  /** Leaves the room without navigating (the caller navigates). */
+  onLeaveQuietly: () => void;
 }) {
   const drivers = driversOf(room);
   const lapsById = new Map(drivers.map((d) => [d.id, lapTimesFromCrossings(d.crossings, numbersPerLap)]));
@@ -648,7 +752,19 @@ function Results({
           )}
         </Text>
         <Text style={styles.title}>
-          {me.retired ? m.room.youRetired : allDone ? m.room.youFinished(me.position) : m.room.othersRacing}
+          {room.rules.quick
+            ? me.retired
+              ? m.quick.dnf
+              : !allDone
+                ? m.room.othersRacing
+                : me.position === 1
+                  ? m.quick.win
+                  : m.quick.loss
+            : me.retired
+              ? m.room.youRetired
+              : allDone
+                ? m.room.youFinished(me.position)
+                : m.room.othersRacing}
         </Text>
 
         <View style={[styles.list, styles.resultsTable]}>
@@ -687,7 +803,9 @@ function Results({
                           ? m.common.winner
                           : s.retired
                             ? ''
-                            : m.room.racing)}
+                            : standings.every((o) => o.id === s.id || o.retired)
+                              ? m.common.winner
+                              : m.room.racing)}
                   </Text>
                 </View>
                 <Text
@@ -735,7 +853,18 @@ function Results({
           )}
         </View>
 
-        {isHost && (allDone || room.status === 'finished') && (
+        {room.rules.quick && (
+          <Pressable
+            onPress={() => {
+              onLeaveQuietly();
+              router.replace('/quick');
+            }}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
+            <Text style={styles.primaryText}>{m.quick.searchAgain}</Text>
+          </Pressable>
+        )}
+        {!room.rules.quick && isHost && (allDone || room.status === 'finished') && (
           <Pressable
             onPress={() => backToLobby(code, room).catch(() => {})}
             accessibilityRole="button"
@@ -743,7 +872,7 @@ function Results({
             <Text style={styles.primaryText}>{m.room.newRace}</Text>
           </Pressable>
         )}
-        {!isHost && allDone && <Text style={styles.hint}>{m.room.hostCanRestart}</Text>}
+        {!room.rules.quick && !isHost && allDone && <Text style={styles.hint}>{m.room.hostCanRestart}</Text>}
         <Pressable onPress={onLeave} accessibilityRole="button" style={styles.secondary}>
           <Text style={styles.secondaryText}>{m.room.leaveRoom}</Text>
         </Pressable>
@@ -774,6 +903,7 @@ function MyStat({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.carbon },
+  quickSpinner: { marginTop: 24 },
   center: { alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
   centerText: { textAlign: 'center' },
   content: {
@@ -784,7 +914,8 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  headerLabel: { flexShrink: 1, textAlign: 'right' },
   exit: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.muted },
   title: { fontFamily: fonts.heading, fontSize: 34, lineHeight: 38, color: colors.text, marginTop: 4 },
   body: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.muted },
