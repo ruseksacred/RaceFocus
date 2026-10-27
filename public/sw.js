@@ -2,6 +2,7 @@
 // Hashed build files are cached forever; the page itself is fetched fresh when online.
 const CACHE = 'racefocus-v1';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const OUTSIDE_APP = ['/privacy', '/delete-account'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
@@ -44,6 +45,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   // Only this site's GET requests. Firebase and other hosts go straight to the network.
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  // Plain pages outside the app (privacy policy, account deletion) load normally.
+  if (OUTSIDE_APP.some((path) => url.pathname.startsWith(path))) return;
 
   if (request.mode === 'navigate') {
     // Every route is the same single-page app.

@@ -8,6 +8,11 @@ function siteOrigin(): string {
   return SITE_URL.replace(/\/+$/, '');
 }
 
+/** A page of the website, e.g. sitePage('/privacy/'). */
+export function sitePage(path: string): string {
+  return `${siteOrigin()}${path}`;
+}
+
 /** Link that opens the join screen for a room, e.g. https://…/join/ABCDE */
 export function inviteUrl(code: string): string {
   return `${siteOrigin()}/join/${code}`;
