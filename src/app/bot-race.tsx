@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +24,8 @@ import {
   lapTimesFromCrossings,
   liveDeltaMs,
   makeBots,
+  isDnf,
+  QUICK_RULES,
   penaltyMs,
   raceStandings,
   randomSeed,
@@ -53,10 +56,26 @@ const START_DELAY_MS = 3600;
 const clock = () => performance.now();
 
 /** Offline race against bots, with the setup from the bot setup screen. */
+/** Quick race rules against one bot at the player's pace, offered when no rival is online. */
+const QUICK_BOT_SETUP: BotSetup = {
+  track: QUICK_RULES.track,
+  mode: QUICK_RULES.mode,
+  lengthKind: QUICK_RULES.lengthKind,
+  laps: QUICK_RULES.laps,
+  minutes: QUICK_RULES.minutes,
+  penaltyMs: QUICK_RULES.penaltyMs,
+  dnfMistakes: QUICK_RULES.dnfMistakes,
+  quick: true,
+  bots: 1,
+  level: 'matched',
+};
+
 export default function BotRaceScreen() {
+  // ?preset=quick: the quick race rules instead of the saved bot setup.
+  const { preset } = useLocalSearchParams<{ preset?: string }>();
   // Each run gets a new key, so "Race again" starts from a clean state with new boards and bots.
   const [run, setRun] = useState(0);
-  return <BotRace key={run} onRestart={() => setRun((r) => r + 1)} />;
+  return <BotRace key={run} quick={preset === 'quick'} onRestart={() => setRun((r) => r + 1)} />;
 }
 
 interface Driving {
@@ -68,14 +87,16 @@ interface Driving {
   prevMistakes: number;
   crossings: number[];
   finished: boolean;
+  /** Out after too many wrong taps. */
+  dnf: boolean;
   raceBest: BestLap | null;
   refRace: number[] | null;
 }
 
-function BotRace({ onRestart }: { onRestart: () => void }) {
+function BotRace({ quick, onRestart }: { quick: boolean; onRestart: () => void }) {
   const m = useMessages();
   // The setup is read once: changing it mid-race must not change the race.
-  const [setup] = useState<BotSetup>(() => useBotSetup.getState().setup);
+  const [setup] = useState<BotSetup>(() => (quick ? QUICK_BOT_SETUP : useBotSetup.getState().setup));
   const [seed] = useState(() => randomSeed());
   const track = getTrack(setup.track)!;
   const numbersPerLap = track.size * track.size;
@@ -119,6 +140,7 @@ function BotRace({ onRestart }: { onRestart: () => void }) {
     prevMistakes: 0,
     crossings: [],
     finished: false,
+    dnf: false,
     raceBest: null,
     refRace: null,
   }));
@@ -144,12 +166,18 @@ function BotRace({ onRestart }: { onRestart: () => void }) {
 
   const raceReal = now - startAt;
   const started = raceReal >= 0;
-  const me = { id: ME, name: myName, crossings: driving.crossings, mistakes: driving.prevMistakes + driving.lap.mistakes };
+  const me = {
+    id: ME,
+    name: myName,
+    crossings: driving.crossings,
+    mistakes: driving.prevMistakes + driving.lap.mistakes,
+    retired: driving.dnf,
+  };
   const drivers = [me, ...botsAt(bots, Math.max(0, raceReal))];
   const { standings, flagTime } = raceStandings(drivers, numbersPerLap, length, started ? raceReal : undefined);
   const mine = standings.find((s) => s.id === ME)!;
   const done = driving.finished || mine.finished;
-  const allDone = standings.every((s) => s.finished);
+  const allDone = standings.every((s) => s.finished || s.retired);
 
   const onTap = (value: number) => {
     const d = drivingRef.current;
@@ -162,6 +190,14 @@ function BotRace({ onRestart }: { onRestart: () => void }) {
     if (outcome.result === 'wrong') {
       setWrongValue(value);
       setYellowAt(real);
+      if (isDnf(d.prevMistakes + outcome.state.mistakes, setup)) {
+        // Too many wrong taps: out of the race.
+        feedback('finish');
+        next = { ...next, finished: true, dnf: true };
+        drivingRef.current = next;
+        setDriving(next);
+        return;
+      }
       feedback('wrong');
     }
     if (outcome.result === 'correct') feedback('tap');
@@ -284,7 +320,13 @@ function BotRace({ onRestart }: { onRestart: () => void }) {
           />
           <Stat
             title={m.room.penalties}
-            value={mistakes === 0 ? '0' : `+${((mistakes * setup.penaltyMs) / 1000).toFixed(1)} s`}
+            value={
+              setup.dnfMistakes
+                ? m.quick.penaltiesOf(mistakes, setup.dnfMistakes)
+                : mistakes === 0
+                  ? '0'
+                  : `+${((mistakes * setup.penaltyMs) / 1000).toFixed(1)} s`
+            }
             color={mistakes > 0 ? colors.yellow : colors.text}
           />
         </View>
@@ -358,7 +400,9 @@ function BotResults({
         <Text style={[label, styles.resultsMeta]}>
           {m.bots.resultsMeta(trackLabel(track), describeLength(m, length), m.bots.levels[setup.level])}
         </Text>
-        <Text style={styles.title}>{allDone ? m.room.youFinished(mine.position) : m.room.othersRacing}</Text>
+        <Text style={styles.title}>
+          {mine.retired ? m.quick.dnf : allDone ? m.room.youFinished(mine.position) : m.room.othersRacing}
+        </Text>
 
         <View style={styles.table}>
           {standings.map((s, i) => {
@@ -407,7 +451,7 @@ function BotResults({
           <Text style={styles.primaryText}>{m.bots.raceAgain}</Text>
         </Pressable>
         <Pressable onPress={goBack} accessibilityRole="button" style={styles.secondary}>
-          <Text style={styles.secondaryText}>{m.bots.changeSetup}</Text>
+          <Text style={styles.secondaryText}>{setup.quick ? m.common.back : m.bots.changeSetup}</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>

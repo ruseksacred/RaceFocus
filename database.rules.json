@@ -42,6 +42,12 @@
           "minutes": {
             ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 30"
           },
+          "quick": {
+            ".validate": "newData.isBoolean()"
+          },
+          "dnfMistakes": {
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 10"
+          },
           "$other": {
             ".validate": false
           }
@@ -80,6 +86,34 @@
         },
         "$other": {
           ".validate": false
+        }
+      }
+    },
+    "queue": {
+      "quick": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider !== 'anonymous'",
+          ".validate": "!newData.exists() || newData.hasChildren(['nick', 'rating', 'joinedAt'])",
+          "nick": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+          },
+          "rating": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000"
+          },
+          "joinedAt": {
+            ".validate": "newData.isNumber() && newData.val() <= now"
+          },
+          "helmet": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "match": {
+            ".write": "auth != null && auth.uid !== $uid && auth.token.firebase.sign_in_provider !== 'anonymous' && !data.exists() && data.parent().exists() && newData.isString() && root.child('queue').child('quick').child(auth.uid).child('match').val() === newData.val()",
+            ".validate": "newData.isString() && newData.val().length <= 8"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       }
     },

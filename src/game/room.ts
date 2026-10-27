@@ -12,6 +12,10 @@ export interface RoomRules {
   minutes: number;
   penaltyMs: number;
   maxPlayers: number;
+  /** Ranked 1-on-1 quick race from matchmaking (no invite, starts by itself). */
+  quick?: boolean;
+  /** This many wrong taps end a driver's race (DNF). Unset: no limit. */
+  dnfMistakes?: number;
 }
 
 export const PENALTY_OPTIONS_MS = [500, 1000, 2000] as const;

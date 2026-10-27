@@ -38,10 +38,16 @@ describe('ratingDelta', () => {
     expect(strongWins).toBeLessThan(weakWins);
   });
 
-  it('ranks retirements behind finishers and level with each other', () => {
+  it('ranks retirements behind finishers, the one who got further first', () => {
     const field = [r('a', 1), r('b', 2, START_RATING, true), r('c', 3, START_RATING, true)];
-    expect(ratingDelta(field[1], field)).toBe(-8);
-    expect(ratingDelta(field[2], field)).toBe(-8);
+    expect(ratingDelta(field[0], field)).toBe(16);
+    expect(ratingDelta(field[1], field)).toBe(0);
+    expect(ratingDelta(field[2], field)).toBe(-16);
+  });
+
+  it('counts two retirements at the same place as a draw', () => {
+    const field = [r('a', 1, START_RATING, true), r('b', 1, START_RATING, true)];
+    expect(ratingDelta(field[0], field)).toBe(0);
   });
 
   it('is zero when racing alone', () => {

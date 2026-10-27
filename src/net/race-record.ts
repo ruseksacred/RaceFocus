@@ -34,7 +34,9 @@ export function buildRaceRecord(
   const mine = standings.find((s) => s.id === uid)!;
   const crossings = driversOf(room).find((d) => d.id === uid)?.crossings ?? [];
   const laps = lapTimesFromCrossings(crossings, numbersPerLap);
-  const finished = mine.finished && !me.retired;
+  // Last driver still in the race (everyone else retired) counts as finishing first.
+  const othersOut = field.every((f) => f.id === uid || f.retired);
+  const finished = !me.retired && (mine.finished || othersOut);
 
   return {
     id: `${code}:${room.startAt ?? 0}`,
@@ -44,7 +46,7 @@ export function buildRaceRecord(
     laps: room.rules.lengthKind === 'time' ? Math.floor(mine.cleared / numbersPerLap) : room.rules.laps,
     drivers: standings.length,
     position: finished ? mine.position : null,
-    totalMs: finished ? mine.totalMs : null,
+    totalMs: finished ? (mine.totalMs ?? crossings.at(-1) ?? null) : null,
     bestLapMs: laps.length ? Math.min(...laps) : null,
     mistakes: mine.mistakes,
     ratingBefore: me.rating,

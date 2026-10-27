@@ -4,6 +4,7 @@ export * from './helmet';
 export * from './lap';
 export * from './leaderboard';
 export * from './length';
+export * from './quick';
 export * from './random';
 export * from './rating';
 export * from './room';
