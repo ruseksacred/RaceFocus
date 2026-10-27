@@ -435,6 +435,8 @@ export const en = {
     vibrationWebNote: 'Not available in Safari on iPhone',
     about: 'About',
     version: (version: string) => `RaceFocus ${version}`,
+    privacy: 'Privacy policy',
+    deleteInfo: 'Deleting your account',
   },
   errors: {
     generic: 'Something went wrong. Try again.',

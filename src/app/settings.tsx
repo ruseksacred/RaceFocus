@@ -1,9 +1,11 @@
 import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
 import { Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Card, Screen, SectionLabel, ui } from '@/components/ui';
 import { deviceLanguage, LANGUAGES, useMessages } from '@/i18n';
 import { goBack } from '@/navigation';
+import { sitePage } from '@/net/invite';
 import { useSettings, type LanguageSetting } from '@/store/settings';
 import { colors, fonts, label } from '@/theme';
 
@@ -74,8 +76,24 @@ export default function SettingsScreen() {
       </Card>
 
       <SectionLabel>{m.settings.about}</SectionLabel>
-      <Card style={styles.about}>
-        <Text style={ui.body}>{m.settings.version(Constants.expoConfig?.version ?? '1.0.0')}</Text>
+      <Card style={styles.list}>
+        <Pressable
+          onPress={() => Linking.openURL(sitePage('/privacy/'))}
+          accessibilityRole="link"
+          style={styles.row}>
+          <Text style={[styles.rowTitle, styles.rowText]}>{m.settings.privacy}</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => Linking.openURL(sitePage('/delete-account/'))}
+          accessibilityRole="link"
+          style={[styles.row, styles.rowBorder]}>
+          <Text style={[styles.rowTitle, styles.rowText]}>{m.settings.deleteInfo}</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+        <View style={[styles.row, styles.rowBorder]}>
+          <Text style={ui.body}>{m.settings.version(Constants.expoConfig?.version ?? '1.0.0')}</Text>
+        </View>
       </Card>
     </Screen>
   );
@@ -133,5 +151,5 @@ const styles = StyleSheet.create({
   },
   radioOn: { borderColor: colors.red },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.red },
-  about: { padding: 16 },
+  chevron: { fontFamily: fonts.bodySemi, fontSize: 22, color: colors.muted },
 });

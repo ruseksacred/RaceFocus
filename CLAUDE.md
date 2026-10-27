@@ -98,6 +98,8 @@ Logo: concept A is chosen: double chevron "fast forward" (white + red) with a ch
 
 ## Publishing notes (verify current rules before release)
 
+Store material (built): privacy policy and account deletion pages are static files in `public/privacy/` and `public/delete-account/` (PL + EN), served at `/privacy/` and `/delete-account/` on the Netlify site and linked from Settings; the service worker leaves them alone (`OUTSIDE_APP` in `public/sw.js`). Update them when the app starts collecting new data (analytics, Sentry, ads, payments). Listing texts, Play Console form answers and graphics are in `docs/store/`. Android builds: `eas.json` (`preview` APK for testers, `production` AAB for Play), package `com.racefocus.app`, Expo project `ruseksacred/racefocus`.
+
 - Google Play: one-time $25 developer fee. Personal accounts created after 13 Nov 2023 need a closed test with 12 testers for 14 days before production. Organization accounts are exempt. New apps must target a recent Android API level.
 - App Store: Apple Developer Program, $99 per year. Test with TestFlight. If third-party sign-in is offered, Sign in with Apple is required, and the app must let users delete their account.
 - Both stores need a privacy policy, store listing assets, age rating and data disclosures. Stores take a commission on in-app purchases.
