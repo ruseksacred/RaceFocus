@@ -4,6 +4,7 @@ import {
   indexedDBLocalPersistence,
   initializeAuth,
   type Auth,
+  type AuthCredential,
 } from 'firebase/auth';
 import type { FirebaseApp } from 'firebase/app';
 
@@ -15,5 +16,10 @@ export function createAuth(app: FirebaseApp): Auth {
   });
 }
 
-/** Google sign-in works in the browser (PWA). The native app needs its own Google module later. */
+/** Google sign-in works in the browser (PWA) through a popup. */
 export const googleSignInAvailable = true;
+
+/** Web uses the popup flow in account.ts instead; only the native app returns a credential here. */
+export async function googleCredential(): Promise<AuthCredential | null> {
+  return null;
+}
