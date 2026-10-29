@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RaceFocus – Become a tester / Zostań testerem</title>
+  <meta name="description" content="Join the RaceFocus test on Google Play, or play in the browser, and send your feedback." />
+  <link rel="icon" href="/icons/icon-192.png" />
+  <style>
+    :root { --carbon:#15151E; --surface:#1F1F2B; --surface2:#2A2A38; --line:#38384A; --text:#F2F4F8; --muted:#A3ACBD; --red:#E10600; --green:#3DDC84; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--carbon); color:var(--text); font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+    main { max-width:640px; margin:0 auto; padding:20px 16px 64px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .logo { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text); }
+    .logo img { width:40px; height:40px; border-radius:9px; }
+    .brand { font-weight:800; font-style:italic; letter-spacing:.04em; font-size:21px; }
+    .brand b { color:var(--red); }
+    .lang { display:flex; gap:6px; }
+    .lang button { background:none; color:var(--muted); border:1px solid var(--line); border-radius:8px; padding:5px 10px; font:inherit; font-size:14px; cursor:pointer; }
+    .lang button[aria-pressed="true"] { color:var(--text); border-color:var(--text); }
+    h1 { font-size:30px; line-height:1.15; margin:28px 0 6px; }
+    h2 { font-size:20px; margin:0 0 4px; }
+    p { margin:6px 0; }
+    .muted { color:var(--muted); font-size:15px; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px 16px; margin-top:16px; }
+    ol.steps { list-style:none; padding:0; margin:14px 0 0; counter-reset:step; }
+    ol.steps li { counter-increment:step; display:grid; grid-template-columns:32px 1fr; gap:4px 12px; padding:12px 0; border-top:1px solid var(--line); }
+    ol.steps li:first-child { border-top:none; padding-top:0; }
+    ol.steps li::before { content:counter(step); grid-row:span 2; width:32px; height:32px; border-radius:50%; background:var(--red); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; }
+    .btn { display:inline-block; margin-top:6px; padding:11px 16px; border-radius:10px; background:var(--red); color:#fff; font-weight:700; text-decoration:none; text-align:center; }
+    .btn.ghost { background:none; border:1px solid var(--line); color:var(--text); }
+    label { display:block; font-size:14px; color:var(--muted); margin:14px 0 6px; }
+    input, select, textarea { width:100%; background:var(--surface2); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:11px 12px; font:inherit; }
+    textarea { min-height:130px; resize:vertical; }
+    input:focus, select:focus, textarea:focus { outline:2px solid var(--text); outline-offset:1px; }
+    button.submit { width:100%; margin-top:18px; padding:14px; border:none; border-radius:10px; background:var(--red); color:#fff; font:inherit; font-weight:800; letter-spacing:.06em; cursor:pointer; }
+    .hidden { display:none; }
+    [lang="pl"] .en, [lang="en"] .pl { display:none; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <a class="logo" href="/"><img src="/icons/icon-192.png" alt="" /><span class="brand">RACE<b>FOCUS</b></span></a>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="pl">PL</button>
+    </div>
+  </header>
+
+  <h1><span class="en">Become a tester</span><span class="pl">Zostań testerem</span></h1>
+  <p class="muted">
+    <span class="en">RaceFocus is a free Schulte-table game with a motorsport twist. The Android app is in closed testing on Google Play: thanks for helping it get published!</span>
+    <span class="pl">RaceFocus to darmowa gra z tablicą Schultego w klimacie motorsportu. Aplikacja na Androida jest w zamkniętym teście w Google Play. Dzięki, że pomagasz ją wydać!</span>
+  </p>
+
+  <section class="card">
+    <h2><span class="en">Android</span><span class="pl">Android</span></h2>
+    <ol class="steps">
+      <li>
+        <strong><span class="en">Join the testers group</span><span class="pl">Dołącz do grupy testerów</span></strong>
+        <span><span class="en">Use the Google account you use in the Play Store.</span><span class="pl">Użyj konta Google, którego używasz w Sklepie Play.</span><br />
+        <a class="btn" href="https://groups.google.com/g/racefocus-testers" target="_blank" rel="noopener"><span class="en">Join the group</span><span class="pl">Dołącz do grupy</span></a></span>
+      </li>
+      <li>
+        <strong><span class="en">Accept the test</span><span class="pl">Zapisz się na test</span></strong>
+        <span><span class="en">Tap "Become a tester".</span><span class="pl">Kliknij „Zostań testerem”.</span><br />
+        <a class="btn" href="https://play.google.com/apps/testing/com.racefocus.app" target="_blank" rel="noopener"><span class="en">Become a tester</span><span class="pl">Zostań testerem</span></a></span>
+      </li>
+      <li>
+        <strong><span class="en">Install from Google Play</span><span class="pl">Zainstaluj z Google Play</span></strong>
+        <span><span class="en">If the store says the app is not found, wait a few minutes and try again.</span><span class="pl">Jeśli sklep pisze, że nie znalazł aplikacji, odczekaj kilka minut i spróbuj ponownie.</span><br />
+        <a class="btn" href="https://play.google.com/store/apps/details?id=com.racefocus.app" target="_blank" rel="noopener"><span class="en">Open in Google Play</span><span class="pl">Otwórz w Google Play</span></a></span>
+      </li>
+    </ol>
+    <p class="muted"><span class="en">Please keep the app installed for 14 days and play a few laps now and then. Google needs this before the app can go public.</span><span class="pl">Nie odinstalowuj aplikacji przez 14 dni i co jakiś czas przejedź kilka okrążeń. Google wymaga tego przed publikacją.</span></p>
+  </section>
+
+  <section class="card">
+    <h2><span class="en">iPhone or computer</span><span class="pl">iPhone albo komputer</span></h2>
+    <p><span class="en">Play in the browser: same game, same account. On iPhone open it in Safari, tap Share, then Add to Home Screen.</span><span class="pl">Graj w przeglądarce: ta sama gra i to samo konto. Na iPhonie otwórz w Safari, stuknij Udostępnij, potem Do ekranu początkowego.</span></p>
+    <a class="btn ghost" href="/"><span class="en">Play in the browser</span><span class="pl">Graj w przeglądarce</span></a>
+  </section>
+
+  <section class="card" id="feedback">
+    <h2><span class="en">Send feedback</span><span class="pl">Wyślij opinię</span></h2>
+    <p class="muted"><span class="en">Bugs, ideas, what you liked or didn't. Every message helps.</span><span class="pl">Błędy, pomysły, co Ci się podoba, a co nie. Każda wiadomość pomaga.</span></p>
+    <form name="feedback" method="POST" action="/test/thanks/" data-netlify="true" netlify-honeypot="bot-field">
+      <input type="hidden" name="form-name" value="feedback" />
+      <input type="hidden" name="language" value="en" />
+      <p class="hidden"><label>Leave empty <input name="bot-field" /></label></p>
+
+      <label for="nick"><span class="en">Nick in the game (optional)</span><span class="pl">Nick w grze (opcjonalnie)</span></label>
+      <input id="nick" name="nick" maxlength="40" autocomplete="nickname" />
+
+      <label for="email"><span class="en">E-mail, if you want a reply (optional)</span><span class="pl">E-mail, jeśli chcesz odpowiedź (opcjonalnie)</span></label>
+      <input id="email" name="email" type="email" maxlength="120" autocomplete="email" />
+
+      <label for="device"><span class="en">Where do you play?</span><span class="pl">Na czym grasz?</span></label>
+      <select id="device" name="device">
+        <option value="android-app">Android (Google Play)</option>
+        <option value="iphone-browser">iPhone (browser)</option>
+        <option value="android-browser">Android (browser)</option>
+        <option value="computer">PC / Mac</option>
+      </select>
+
+      <label for="rating"><span class="en">How do you like it?</span><span class="pl">Jak Ci się podoba?</span></label>
+      <select id="rating" name="rating">
+        <option value="5">★★★★★</option>
+        <option value="4">★★★★</option>
+        <option value="3">★★★</option>
+        <option value="2">★★</option>
+        <option value="1">★</option>
+      </select>
+
+      <label for="message"><span class="en">Your feedback</span><span class="pl">Twoja opinia</span></label>
+      <textarea id="message" name="message" required maxlength="4000"></textarea>
+
+      <button class="submit" type="submit"><span class="en">SEND</span><span class="pl">WYŚLIJ</span></button>
+    </form>
+  </section>
+
+  <p class="muted" style="margin-top:24px"><a href="/privacy/">Privacy policy / Polityka prywatności</a></p>
+</main>
+<script>
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('rf-test-lang'); } catch (e) {}
+    var lang = saved || ((navigator.language || 'en').toLowerCase().indexOf('pl') === 0 ? 'pl' : 'en');
+    function apply(l) {
+      document.documentElement.lang = l;
+      document.querySelector('input[name="language"]').value = l;
+      document.querySelectorAll('.lang button').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.dataset.lang === l));
+      });
+    }
+    document.querySelectorAll('.lang button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        apply(b.dataset.lang);
+        try { localStorage.setItem('rf-test-lang', b.dataset.lang); } catch (e) {}
+      });
+    });
+    apply(lang);
+  })();
+</script>
+</body>
+</html>

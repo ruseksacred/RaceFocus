@@ -78,9 +78,16 @@ export default function SettingsScreen() {
       <SectionLabel>{m.settings.about}</SectionLabel>
       <Card style={styles.list}>
         <Pressable
-          onPress={() => Linking.openURL(sitePage('/privacy/'))}
+          onPress={() => Linking.openURL(sitePage('/test/#feedback'))}
           accessibilityRole="link"
           style={styles.row}>
+          <Text style={[styles.rowTitle, styles.rowText]}>{m.settings.sendFeedback}</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => Linking.openURL(sitePage('/privacy/'))}
+          accessibilityRole="link"
+          style={[styles.row, styles.rowBorder]}>
           <Text style={[styles.rowTitle, styles.rowText]}>{m.settings.privacy}</Text>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
