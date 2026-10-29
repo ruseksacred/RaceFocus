@@ -13,6 +13,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { get, ref, remove, runTransaction, set } from 'firebase/database';
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 
 import { decodeHelmet, normalizeNick } from '@/game';
@@ -22,6 +23,7 @@ import { careerOf, EMPTY_CAREER, useCareer, type Career } from '@/store/career';
 import { useProfile } from '@/store/profile';
 import { fasterLaps, useRecords, type BestLaps } from '@/store/records';
 
+import { googleCredential } from './auth-setup';
 import { firebase, firebaseConfigured, signIn } from './firebase';
 import { refreshMyRecords, removeMyRecords } from './leaderboard';
 
@@ -252,22 +254,26 @@ export async function signInWithEmail(email: string, password: string) {
   }
 }
 
-/** Web only for now. New Google users pick a nick next (needsNick). */
+/** New Google users pick a nick next (needsNick). Web uses a popup, the phone app the native picker. */
 export async function continueWithGoogle() {
   const { auth } = firebase();
-  const provider = new GoogleAuthProvider();
   try {
     await signIn();
     const user = auth.currentUser!;
+    const nativeCredential = Platform.OS === 'web' ? null : await googleCredential();
+    if (Platform.OS !== 'web' && !nativeCredential) return; // picker closed
     try {
-      await linkWithPopup(user, provider);
+      if (nativeCredential) await linkWithCredential(user, nativeCredential);
+      else await linkWithPopup(user, new GoogleAuthProvider());
       await user.getIdToken(true);
       // onAuthStateChanged does not fire for linking; update state by hand.
       useAccount.setState({ isGuest: false, email: auth.currentUser?.email ?? null, provider: 'google' });
       await pullAccount(auth.currentUser!);
     } catch (error) {
+      // This Google account already has a RaceFocus account: sign in to it instead.
       const credential =
-        error instanceof FirebaseError ? GoogleAuthProvider.credentialFromError(error) : null;
+        nativeCredential ??
+        (error instanceof FirebaseError ? GoogleAuthProvider.credentialFromError(error) : null);
       if (error instanceof FirebaseError && error.code === 'auth/credential-already-in-use' && credential) {
         await signInWithCredential(auth, credential);
         return;
