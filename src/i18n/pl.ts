@@ -470,6 +470,7 @@ export const pl: Messages = {
     vibrationWebNote: 'Niedostępne w Safari na iPhonie',
     about: 'O aplikacji',
     version: (version) => `RaceFocus ${version}`,
+    sendFeedback: 'Wyślij opinię',
     privacy: 'Polityka prywatności',
     deleteInfo: 'Usuwanie konta',
   },

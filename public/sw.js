@@ -2,7 +2,7 @@
 // Hashed build files are cached forever; the page itself is fetched fresh when online.
 const CACHE = 'racefocus-v1';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
-const OUTSIDE_APP = ['/privacy', '/delete-account'];
+const OUTSIDE_APP = ['/privacy', '/delete-account', '/test'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
