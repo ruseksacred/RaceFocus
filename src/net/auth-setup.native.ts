@@ -22,7 +22,9 @@ export function createAuth(app: FirebaseApp): firebaseAuth.Auth {
  * OAuth "Web client" ID of the Firebase project (Authentication → Google → Web SDK configuration).
  * Google returns an ID token for this client, which Firebase accepts.
  */
-const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
+const WEB_CLIENT_ID = 
+  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ??
+  '747969436231-pf7596t12ft3ar97u0c4d0akdg70ophp.apps.googleusercontent.com';
 
 export const googleSignInAvailable = WEB_CLIENT_ID !== '';
 
