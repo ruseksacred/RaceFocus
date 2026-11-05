@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Board, StartLights } from '@/components/board';
+import { Board, StartLights, useBoardFit, useShortScreen } from '@/components/board';
 import { DeltaBar } from '@/components/delta';
 import { FlagBanner, type FlagKind } from '@/components/flag';
 import { HelmetAvatar } from '@/components/helmet';
@@ -95,6 +95,9 @@ interface Driving {
 
 function BotRace({ quick, onRestart }: { quick: boolean; onRestart: () => void }) {
   const m = useMessages();
+  // The standings under the board may scroll; the board itself stays on screen.
+  const fit = useBoardFit(12);
+  const short = useShortScreen();
   // The setup is read once: changing it mid-race must not change the race.
   const [setup] = useState<BotSetup>(() => (quick ? QUICK_BOT_SETUP : useBotSetup.getState().setup));
   const [seed] = useState(() => randomSeed());
@@ -300,6 +303,7 @@ function BotRace({ quick, onRestart }: { quick: boolean; onRestart: () => void }
         </View>
 
         <DeltaBar
+          compact={short}
           title={m.room.deltaRaceBar}
           delta={liveRace}
           reference={driving.refRace}
@@ -337,10 +341,14 @@ function BotRace({ quick, onRestart }: { quick: boolean; onRestart: () => void }
               <Text style={label}>{m.room.next}</Text>
               <Text style={[styles.nextValue, tabular]}>{driving.lap.targets[driving.lap.nextIndex]}</Text>
             </View>
-            <Board lap={driving.lap} wrongValue={wrongValue} onTap={onTap} />
+            <View onLayout={fit.onLayout}>
+              <Board lap={driving.lap} wrongValue={wrongValue} onTap={onTap} maxSide={fit.maxSide} />
+            </View>
           </>
         ) : (
-          <StartLights size={track.size} lit={lit} green={green} text={lightsText} />
+          <View onLayout={fit.onLayout}>
+            <StartLights size={track.size} lit={lit} green={green} text={lightsText} maxSide={fit.maxSide} />
+          </View>
         )}
 
         <StandingsGrid standings={standings} helmets={helmets} meId={ME} />

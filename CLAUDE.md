@@ -59,7 +59,7 @@ Shared race engine to build once: lobby, server-time start, shared seed, live st
 
 - React Native with Expo, TypeScript. Expo Router for navigation, Zustand for state, expo-notifications for push.
 - Backend: **Firebase** (chosen): anonymous auth for now, Realtime Database for rooms. Project `racefocus-b709c` (RTDB europe-west1); its web config is in `src/net/firebase.ts`, `EXPO_PUBLIC_FIREBASE_*` can override; local emulators via `npm run emulators`. Rules live in `database.rules.json`.
-- Testing on phones for now: the web build as a **PWA** hosted on Netlify (`netlify.toml`, `public/` holds the HTML template, manifest, icons and `sw.js`). Async routes are off so the single bundle can be cached for offline use.
+- Testing on phones for now: the web build as a **PWA** hosted on Netlify (`netlify.toml`, `public/` holds the HTML template, manifest, icons and `sw.js`). Async routes are off so the single bundle can be cached for offline use. Race boards fit the visible height too (`useBoardFit` in `src/components/board.tsx`; iPhone Safari's toolbars leave little room), and short screens (< 760 px) get a tighter race layout (`useShortScreen`, compact `DeltaBar`).
 - Builds and store submission through EAS later (no Mac needed for iOS builds).
 - Error reporting: Sentry.
 - Keep game logic (board generation from seed, order check, timing, penalties, delta) in plain TypeScript modules with unit tests, separate from UI.
