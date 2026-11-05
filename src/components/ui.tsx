@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, fonts, label } from '@/theme';
@@ -8,7 +16,13 @@ import { colors, fonts, label } from '@/theme';
 export function Screen({ children }: { children: ReactNode }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
+      {/* The app draws edge to edge, so Android no longer shrinks the screen for the keyboard:
+          leave room for it here, and let a tap on a button work while it is open. */}
+      <KeyboardAvoidingView style={styles.fill} behavior="padding">
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -33,6 +47,7 @@ export const ui = StyleSheet.create({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.carbon },
+  fill: { flex: 1 },
   content: {
     padding: 20,
     paddingTop: 16,
