@@ -60,7 +60,8 @@ export function mergeRecent(a: readonly SessionSummary[], b: readonly SessionSum
 export const usePractice = create<PracticeState>()(
   persist(
     (set) => ({
-      setup: { track: 'circuit', mode: 'ascending', lengthKind: 'laps', laps: 5, minutes: 3 },
+      // New players start on the smallest track; Practice changes it.
+      setup: { track: 'sprint', mode: 'ascending', lengthKind: 'laps', laps: 3, minutes: 3 },
       recent: [],
       totals: EMPTY_TOTALS,
       updateSetup: (change) => set((state) => ({ setup: { ...state.setup, ...change } })),

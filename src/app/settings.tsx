@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Card, Screen, SectionLabel, ui } from '@/components/ui';
@@ -77,10 +78,14 @@ export default function SettingsScreen() {
 
       <SectionLabel>{m.settings.about}</SectionLabel>
       <Card style={styles.list}>
+        <Pressable onPress={() => router.push('/how-to')} accessibilityRole="button" style={styles.row}>
+          <Text style={[styles.rowTitle, styles.rowText]}>{m.howTo.open}</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
         <Pressable
           onPress={() => Linking.openURL(sitePage('/test/#feedback'))}
           accessibilityRole="link"
-          style={styles.row}>
+          style={[styles.row, styles.rowBorder]}>
           <Text style={[styles.rowTitle, styles.rowText]}>{m.settings.sendFeedback}</Text>
           <Text style={styles.chevron}>›</Text>
         </Pressable>

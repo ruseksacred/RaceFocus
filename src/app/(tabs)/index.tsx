@@ -1,12 +1,16 @@
 import { Link, router } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { FirstSteps } from '@/components/first-steps';
 import { Card, Screen, SectionLabel } from '@/components/ui';
 import { Wordmark } from '@/components/wordmark';
-import { formatLapTime, getTrack, trackLabel, TRACKS } from '@/game';
+import { formatLapTime, getTrack, stepsProgress, trackLabel, TRACKS } from '@/game';
 import { useLanguage, useMessages } from '@/i18n';
 import { formatWhen } from '@/labels';
+import { useCareer } from '@/store/career';
+import { useOnboarding } from '@/store/onboarding';
 import { usePractice } from '@/store/practice';
 import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
@@ -18,6 +22,22 @@ export default function Home() {
   const recent = usePractice((state) => state.recent);
   const updateSetup = usePractice((state) => state.updateSetup);
   const bestLaps = useRecords((state) => state.bestLaps);
+  const initialized = useOnboarding((state) => state.initialized);
+  const welcomeSeen = useOnboarding((state) => state.welcomeSeen);
+  const stepsHidden = useOnboarding((state) => state.stepsHidden);
+  const done = useOnboarding((state) => state.done);
+  // A rated race counts for the 1v1 step too (it also needs an account).
+  const raced = useCareer((state) => state.ratedRaces > 0);
+  const progress = stepsProgress({ ...done, quick: done.quick || raced });
+  const showSteps = initialized && !stepsHidden && progress.current !== null;
+
+  // New players see the welcome first, once.
+  const welcomedRef = useRef(false);
+  useEffect(() => {
+    if (!initialized || welcomeSeen || welcomedRef.current) return;
+    welcomedRef.current = true;
+    router.push('/welcome');
+  }, [initialized, welcomeSeen]);
 
   const track = getTrack(setup.track)!;
   const best = bestLaps[recordKey(setup.track, setup.mode)]?.ms;
@@ -36,44 +56,57 @@ export default function Home() {
     <Screen>
       <View style={styles.header}>
         <Wordmark />
-        <Link href="/profile" asChild>
-          <Pressable accessibilityRole="button" accessibilityLabel={m.home.profile}>
-            <Avatar />
+        <View style={styles.headerRight}>
+          <Pressable
+            onPress={() => router.push('/how-to')}
+            accessibilityRole="button"
+            accessibilityLabel={m.howTo.open}
+            style={styles.help}>
+            <Text style={styles.helpText}>?</Text>
           </Pressable>
-        </Link>
-      </View>
-
-      <Card style={styles.quick}>
-        <View style={styles.quickTop}>
-          <Text style={label}>{m.home.quickStart}</Text>
-          <Link href="/practice" style={styles.change}>
-            {m.home.change}
+          <Link href="/profile" asChild>
+            <Pressable accessibilityRole="button" accessibilityLabel={m.home.profile}>
+              <Avatar />
+            </Pressable>
           </Link>
         </View>
-        <Text style={styles.quickTitle}>
-          {trackLabel(track)} ·{' '}
-          {setup.lengthKind === 'time' ? m.common.minutes(setup.minutes) : m.common.laps(setup.laps)}
-        </Text>
-        <View style={styles.quickStats}>
-          <Stat title={m.home.mode} value={m.modesShort[setup.mode]} />
-          <Stat
-            title={m.home.personalBest}
-            value={best === undefined ? '—' : formatLapTime(best)}
-            color={colors.green}
-          />
-          <Stat
-            title={m.home.lastSession}
-            value={lastSession ? formatLapTime(lastSession.bestMs) : '—'}
-            color={colors.purple}
-          />
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={start}
-          style={({ pressed }) => [styles.start, pressed && styles.pressed]}>
-          <Text style={styles.startText}>{m.home.start}</Text>
-        </Pressable>
-      </Card>
+      </View>
+
+      {showSteps ? (
+        <FirstSteps progress={progress} />
+      ) : (
+        <Card style={styles.quick}>
+          <View style={styles.quickTop}>
+            <Text style={label}>{m.home.quickStart}</Text>
+            <Link href="/practice" style={styles.change}>
+              {m.home.change}
+            </Link>
+          </View>
+          <Text style={styles.quickTitle}>
+            {trackLabel(track)} ·{' '}
+            {setup.lengthKind === 'time' ? m.common.minutes(setup.minutes) : m.common.laps(setup.laps)}
+          </Text>
+          <View style={styles.quickStats}>
+            <Stat title={m.home.mode} value={m.modesShort[setup.mode]} />
+            <Stat
+              title={m.home.personalBest}
+              value={best === undefined ? '—' : formatLapTime(best)}
+              color={colors.green}
+            />
+            <Stat
+              title={m.home.lastSession}
+              value={lastSession ? formatLapTime(lastSession.bestMs) : '—'}
+              color={colors.purple}
+            />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={start}
+            style={({ pressed }) => [styles.start, pressed && styles.pressed]}>
+            <Text style={styles.startText}>{m.home.start}</Text>
+          </Pressable>
+        </Card>
+      )}
 
       <SectionLabel right={<Text style={styles.small}>{m.home.bestLapFor(m.modesShort[setup.mode])}</Text>}>
         {m.home.yourTracks}
@@ -165,6 +198,17 @@ function Stat({ title, value, color = colors.text }: { title: string; value: str
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  help: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpText: { fontFamily: fonts.bodySemi, fontSize: 17, color: colors.text },
   quick: { marginTop: 22, padding: 18, gap: 12 },
   quickTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   change: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.muted },

@@ -39,6 +39,7 @@ import {
 import { useMessages } from '@/i18n';
 import { describeLength } from '@/labels';
 import { goBack } from '@/navigation';
+import { useOnboarding } from '@/store/onboarding';
 import { useBotSetup, type BotSetup } from '@/store/bots';
 import { useProfile } from '@/store/profile';
 import { recordKey, useRecords, type BestLap } from '@/store/records';
@@ -180,6 +181,11 @@ function BotRace({ quick, onRestart }: { quick: boolean; onRestart: () => void }
   const { standings, flagTime } = raceStandings(drivers, numbersPerLap, length, started ? raceReal : undefined);
   const mine = standings.find((s) => s.id === ME)!;
   const done = driving.finished || mine.finished;
+
+  // First steps on Home: a bot race driven to the flag.
+  useEffect(() => {
+    if (done) useOnboarding.getState().markDone('bots');
+  }, [done]);
   const allDone = standings.every((s) => s.finished || s.retired);
 
   const onTap = (value: number) => {

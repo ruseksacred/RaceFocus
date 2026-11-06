@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Board, StartLights, useBoardFit, useShortScreen } from '@/components/board';
 import { DeltaBar, deltaColor, LiveDelta } from '@/components/delta';
 import { FlagBanner, type FlagKind } from '@/components/flag';
+import { Hint } from '@/components/hint';
 import {
   addLap,
   applyTap,
@@ -36,6 +37,8 @@ import {
   sessionBest,
   sessionBestIndex,
   totalTime,
+  TRIAL_HINT_TAPS,
+  WRONG_TAP_PENALTY_MS,
   type LapState,
   type Mode,
   type Session,
@@ -45,6 +48,7 @@ import { feedback } from '@/feedback';
 import { useMessages } from '@/i18n';
 import { submitRecord } from '@/net/leaderboard';
 import { goBack } from '@/navigation';
+import { useOnboarding } from '@/store/onboarding';
 import { usePractice } from '@/store/practice';
 import { recordKey, useRecords } from '@/store/records';
 import { colors, fonts, label, tabular } from '@/theme';
@@ -80,7 +84,15 @@ const YELLOW_FLAG_MS = 2000;
 const DEFAULT_LAPS = 5;
 
 export default function RaceScreen() {
-  const params = useLocalSearchParams<{ track?: string; mode?: string; laps?: string; minutes?: string }>();
+  const params = useLocalSearchParams<{
+    track?: string;
+    mode?: string;
+    laps?: string;
+    minutes?: string;
+    trial?: string;
+  }>();
+  // The practice lap for new players: one lap of Sprint, counting up, with hints.
+  if (params.trial === '1') return <Race track={getTrack('sprint')!} mode="ascending" length={lapsLength(1)} trial />;
   const track = getTrack(params.track ?? '') ?? getTrack('circuit')!;
   const mode: Mode = MODES.includes(params.mode as Mode) ? (params.mode as Mode) : 'ascending';
   const minutes = parseMinutes(params.minutes ?? '');
@@ -89,7 +101,17 @@ export default function RaceScreen() {
   return <Race track={track} mode={mode} length={length} />;
 }
 
-function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceLength }) {
+function Race({
+  track,
+  mode,
+  length,
+  trial = false,
+}: {
+  track: Track;
+  mode: Mode;
+  length: RaceLength;
+  trial?: boolean;
+}) {
   const m = useMessages();
   // Under the board: progress bar, its counter and the screen padding.
   const fit = useBoardFit(70);
@@ -107,6 +129,8 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
   const [wrongValue, setWrongValue] = useState<number | null>(null);
   const [yellowAt, setYellowAt] = useState<number | null>(null);
   const [result, setResult] = useState<LapResult | null>(null);
+  /** The first wrong tap ever is explained until the end of that lap. */
+  const [explainMistake, setExplainMistake] = useState(false);
 
   const lapRef = useRef(lap);
   const sessionRef = useRef(session);
@@ -174,6 +198,10 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
     if (phase !== 'summary' || session.laps.length === 0 || loggedRef.current === session) return;
     loggedRef.current = session;
     const best = sessionBest(session)!;
+    const { markDone } = useOnboarding.getState();
+    if (trial) markDone('trial');
+    else if (track.id === 'sprint') markDone('sprint');
+    else if (track.id === 'street') markDone('street');
     // Temporary while testing: the session's best lap also goes to the leaderboard (kept only if faster).
     if (SOLO_LAPS_COUNT_FOR_RECORDS) submitRecord(track.id, mode, best.ms);
     addSession({
@@ -189,7 +217,7 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
       personalBest: personalBestRef.current,
       finishedAt: Date.now(),
     });
-  }, [phase, session, track.id, mode, addSession]);
+  }, [phase, session, track.id, mode, addSession, trial]);
 
   useEffect(() => {
     if (wrongValue === null) return;
@@ -215,10 +243,15 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
         setWrongValue(value);
         setYellowAt(at);
         feedback('wrong');
+        if (!useOnboarding.getState().mistakeExplained) {
+          useOnboarding.getState().explainMistake();
+          setExplainMistake(true);
+        }
       }
       if (outcome.result === 'correct') feedback('tap');
       if (outcome.result === 'finished') {
         const lapMs = lapTimeMs(outcome.state)!;
+        setExplainMistake(false);
         const previous = sessionRef.current;
         const previousBest = sessionBest(previous);
         const previousPersonal = useRecords.getState().bestLaps[key] ?? null;
@@ -270,6 +303,14 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
     else goBack();
   };
 
+  if (phase === 'summary' && trial) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <TrialDone session={session} />
+      </SafeAreaView>
+    );
+  }
+
   if (phase === 'summary') {
     return (
       <SafeAreaView style={styles.safe}>
@@ -290,6 +331,7 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
   const time = beforeStart ? 0 : elapsedMs(lap, now);
   const total = lap.targets.length;
   const target = nextTarget(lap);
+  const penaltySeconds = String(WRONG_TAP_PENALTY_MS / 1000);
 
   // Race clock: laps run back to back, so it is the finished laps plus the lap being driven.
   const raceNow = totalTime(session) + (phase === 'running' ? time : 0);
@@ -319,7 +361,7 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
             <Text style={styles.exit}>{session.laps.length > 0 ? m.race.end : m.race.exit}</Text>
           </Pressable>
           <Text style={label}>
-            {lapText} · {track.size}×{track.size} {track.name}
+            {trial ? m.trial.label : lapText} · {track.size}×{track.size} {track.name}
           </Text>
         </View>
 
@@ -329,28 +371,46 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
           {formatLapTime(time)}
         </Text>
 
-        <DeltaBar
-          compact={short}
-          title={m.race.deltaSessionBar}
-          delta={liveSession}
-          reference={refs.session}
-          noLap={m.practice.noLapYet}
-        />
+        {trial ? (
+          // The practice lap teaches the board first: no delta or records yet.
+          explainMistake ? (
+            <Hint tone="yellow" title={m.trial.mistakeTitle(penaltySeconds)} text={m.trial.mistakeText} />
+          ) : (
+            <Hint title={m.trial.hintTitle(total)} text={m.trial.hintText} />
+          )
+        ) : (
+          <View>
+            <DeltaBar
+              compact={short}
+              title={m.race.deltaSessionBar}
+              delta={liveSession}
+              reference={refs.session}
+              noLap={m.practice.noLapYet}
+            />
 
-        <View style={styles.stats}>
-          <LiveDelta
-            title={m.race.deltaPersonalBest}
-            delta={livePersonal}
-            reference={refs.personal}
-            noLap={m.practice.noLapYet}
-          />
-          <View style={styles.stat}>
-            <Text style={[label, styles.statLabel]}>{m.race.penalties}</Text>
-            <Text style={[styles.statValue, tabular, lap.mistakes > 0 && { color: colors.yellow }]}>
-              {lap.mistakes === 0 ? '0' : `+${lap.mistakes}.0 s`}
-            </Text>
+            <View style={styles.stats}>
+              <LiveDelta
+                title={m.race.deltaPersonalBest}
+                delta={livePersonal}
+                reference={refs.personal}
+                noLap={m.practice.noLapYet}
+              />
+              <View style={styles.stat}>
+                <Text style={[label, styles.statLabel]}>{m.race.penalties}</Text>
+                <Text style={[styles.statValue, tabular, lap.mistakes > 0 && { color: colors.yellow }]}>
+                  {lap.mistakes === 0 ? '0' : `+${lap.mistakes}.0 s`}
+                </Text>
+              </View>
+            </View>
+
+            {explainMistake && (
+              // Over the delta, so the board does not move mid-lap.
+              <View style={styles.mistakeOver}>
+                <Hint tone="yellow" title={m.trial.mistakeTitle(penaltySeconds)} text={m.trial.mistakeText} />
+              </View>
+            )}
           </View>
-        </View>
+        )}
 
         {phase === 'finish' && result ? (
           <LapCard result={result} lapNumber={lapNumber} footer={m.race.sessionComplete} />
@@ -372,7 +432,13 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
                   maxSide={fit.maxSide}
                 />
               ) : (
-                <Board lap={lap} wrongValue={wrongValue} onTap={onTap} maxSide={fit.maxSide} />
+                <Board
+                  lap={lap}
+                  wrongValue={wrongValue}
+                  onTap={onTap}
+                  maxSide={fit.maxSide}
+                  hintValue={trial && lap.nextIndex < TRIAL_HINT_TAPS ? target : null}
+                />
               )}
             </View>
 
@@ -446,6 +512,62 @@ function ResultDelta({ title, delta }: { title: string; delta: number | null }) 
         {delta === null ? '—' : formatDelta(delta)}
       </Text>
     </View>
+  );
+}
+
+/** After the practice lap: the first record, what the delta bar means, and the next step. */
+function TrialDone({ session }: { session: Session }) {
+  const m = useMessages();
+  const updateSetup = usePractice((state) => state.updateSetup);
+  const best = sessionBest(session);
+  const mistakes = session.laps.reduce((sum, l) => sum + l.mistakes, 0);
+  const lapMs = best?.ms ?? 0;
+
+  const again = () => {
+    updateSetup({ track: 'sprint', mode: 'ascending', lengthKind: 'laps', laps: 3 });
+    router.replace({ pathname: '/race', params: { track: 'sprint', mode: 'ascending', laps: '3' } });
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.content}>
+      <FlagBanner flag="chequered" />
+      <View style={styles.trialHead}>
+        <Text style={label}>{m.trial.doneLabel}</Text>
+        <Text style={[styles.trialTime, tabular]}>{formatLapTime(lapMs)}</Text>
+        {mistakes > 0 && (
+          <Text style={styles.small}>{m.trial.penalties(String((mistakes * WRONG_TAP_PENALTY_MS) / 1000))}</Text>
+        )}
+      </View>
+
+      <View style={styles.trialCard}>
+        <Text style={styles.trialTitle}>{m.trial.recordTitle}</Text>
+        <Text style={styles.trialText}>{m.trial.recordText}</Text>
+        {/* An example: what the bar looks like while you gain on your record. */}
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <DeltaBar
+            compact
+            title={m.race.deltaPersonalBest}
+            delta={-Math.round(lapMs * 0.06)}
+            reference={[lapMs]}
+            noLap=""
+          />
+        </View>
+        <View style={styles.trialLegend}>
+          <Text style={styles.small}>{m.trial.losing}</Text>
+          <Text style={styles.small}>{m.trial.gaining}</Text>
+        </View>
+      </View>
+
+      <Pressable
+        onPress={again}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.trialPrimary, pressed && { opacity: 0.85 }]}>
+        <Text style={styles.trialPrimaryText}>{m.trial.again}</Text>
+      </Pressable>
+      <Pressable onPress={() => router.replace('/')} accessibilityRole="button" style={styles.trialSecondary}>
+        <Text style={styles.trialSecondaryText}>{m.trial.home}</Text>
+      </Pressable>
+    </ScrollView>
   );
 }
 
@@ -566,6 +688,32 @@ const styles = StyleSheet.create({
   },
   timerShort: { fontSize: 48, lineHeight: 52, marginTop: 0 },
   stats: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
+  trialHead: { alignItems: 'center', gap: 4, marginTop: 20 },
+  trialTime: { fontFamily: fonts.heading, fontSize: 80, lineHeight: 88, color: colors.green },
+  trialCard: {
+    marginTop: 20,
+    padding: 18,
+    gap: 12,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  trialTitle: { fontFamily: fonts.heading, fontSize: 26, lineHeight: 30, color: colors.text },
+  trialText: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.muted },
+  trialLegend: { flexDirection: 'row', justifyContent: 'space-between' },
+  trialPrimary: {
+    marginTop: 24,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: colors.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trialPrimaryText: { fontFamily: fonts.heading, fontSize: 22, letterSpacing: 1.5, color: colors.white },
+  trialSecondary: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 16, marginTop: 4 },
+  trialSecondaryText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.muted },
+  mistakeOver: { position: 'absolute', top: -10, left: 0, right: 0, backgroundColor: colors.carbon },
   stat: { alignItems: 'center', gap: 1, minWidth: 96 },
   statLabel: { fontSize: 11, letterSpacing: 1.1 },
   statValue: { fontFamily: fonts.heading, fontSize: 26, color: colors.muted },
