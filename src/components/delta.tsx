@@ -47,12 +47,15 @@ export function DeltaBar({
   delta,
   reference,
   noLap,
+  compact,
 }: {
   title: string;
   delta: number | null;
   reference: readonly number[] | null;
   /** Shown instead of the reference time before there is one. */
   noLap: string;
+  /** Lower bar for short screens. */
+  compact?: boolean;
 }) {
   const referenceMs = reference?.at(-1) ?? null;
   const fill = deltaBarFill(delta, referenceMs);
@@ -65,7 +68,7 @@ export function DeltaBar({
           {referenceMs !== null ? formatLapTime(referenceMs) : noLap}
         </Text>
       </View>
-      <View style={styles.track} accessible accessibilityLabel={`${title} ${text}`}>
+      <View style={[styles.track, compact && styles.trackCompact]} accessible accessibilityLabel={`${title} ${text}`}>
         {fill !== 0 && (
           <View
             style={[
@@ -77,7 +80,15 @@ export function DeltaBar({
           />
         )}
         <View style={styles.centre} />
-        <Text style={[styles.barValue, tabular, delta === null && { color: colors.muted }]}>{text}</Text>
+        <Text
+          style={[
+            styles.barValue,
+            compact && styles.barValueCompact,
+            tabular,
+            delta === null && { color: colors.muted },
+          ]}>
+          {text}
+        </Text>
       </View>
     </View>
   );
@@ -100,6 +111,7 @@ export const deltaStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  trackCompact: { height: 40 },
   fill: { position: 'absolute', top: 0, bottom: 0, opacity: 0.9 },
   centre: {
     position: 'absolute',
@@ -120,6 +132,7 @@ export const deltaStyles = StyleSheet.create({
     textShadowRadius: 4,
     textShadowOffset: { width: 0, height: 1 },
   },
+  barValueCompact: { fontSize: 26, lineHeight: 30 },
 });
 
 const styles = deltaStyles;

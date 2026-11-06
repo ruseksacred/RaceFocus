@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Board, StartLights } from '@/components/board';
+import { Board, StartLights, useBoardFit, useShortScreen } from '@/components/board';
 import { DeltaBar, deltaColor, LiveDelta } from '@/components/delta';
 import { FlagBanner, type FlagKind } from '@/components/flag';
 import {
@@ -91,6 +91,9 @@ export default function RaceScreen() {
 
 function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceLength }) {
   const m = useMessages();
+  // Under the board: progress bar, its counter and the screen padding.
+  const fit = useBoardFit(70);
+  const short = useShortScreen();
   const key = recordKey(track.id, mode);
   const personalBest = useRecords((state) => state.bestLaps[key] ?? null);
   const submitLap = useRecords((state) => state.submitLap);
@@ -322,11 +325,12 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
 
         <FlagBanner flag={flag} />
 
-        <Text style={[styles.timer, tabular]} accessibilityLabel={m.race.lapTimeA11y(formatLapTime(time))}>
+        <Text style={[styles.timer, short && styles.timerShort, tabular]} accessibilityLabel={m.race.lapTimeA11y(formatLapTime(time))}>
           {formatLapTime(time)}
         </Text>
 
         <DeltaBar
+          compact={short}
           title={m.race.deltaSessionBar}
           delta={liveSession}
           reference={refs.session}
@@ -355,19 +359,22 @@ function Race({ track, mode, length }: { track: Track; mode: Mode; length: RaceL
             <LastLap result={phase === 'running' ? result : null} lapNumber={session.laps.length} />
             <View style={styles.next}>
               <Text style={label}>{m.race.next}</Text>
-              <Text style={[styles.nextValue, tabular]}>{beforeStart ? '–' : target}</Text>
+              <Text style={[styles.nextValue, short && styles.nextValueShort, tabular]}>{beforeStart ? '–' : target}</Text>
             </View>
 
-            {beforeStart ? (
-              <StartLights
-                size={track.size}
-                lit={COUNTDOWN_FROM - countdown + 1}
-                green={phase === 'green'}
-                text={phase === 'green' ? m.lights.go : String(countdown)}
-              />
-            ) : (
-              <Board lap={lap} wrongValue={wrongValue} onTap={onTap} />
-            )}
+            <View onLayout={fit.onLayout}>
+              {beforeStart ? (
+                <StartLights
+                  size={track.size}
+                  lit={COUNTDOWN_FROM - countdown + 1}
+                  green={phase === 'green'}
+                  text={phase === 'green' ? m.lights.go : String(countdown)}
+                  maxSide={fit.maxSide}
+                />
+              ) : (
+                <Board lap={lap} wrongValue={wrongValue} onTap={onTap} maxSide={fit.maxSide} />
+              )}
+            </View>
 
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${(lap.nextIndex / total) * 100}%` }]} />
@@ -557,6 +564,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
   },
+  timerShort: { fontSize: 48, lineHeight: 52, marginTop: 0 },
   stats: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
   stat: { alignItems: 'center', gap: 1, minWidth: 96 },
   statLabel: { fontSize: 11, letterSpacing: 1.1 },
@@ -564,6 +572,7 @@ const styles = StyleSheet.create({
   statCaption: { fontFamily: fonts.body, fontSize: 11, color: colors.muted },
   next: { flexDirection: 'row', justifyContent: 'center', alignItems: 'baseline', gap: 12, marginTop: 6 },
   nextValue: { fontFamily: fonts.heading, fontSize: 52, lineHeight: 56, color: colors.red, minWidth: 60 },
+  nextValueShort: { fontSize: 36, lineHeight: 40 },
   progressTrack: {
     marginTop: 14,
     height: 6,

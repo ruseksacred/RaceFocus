@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Board, StartLights } from '@/components/board';
+import { Board, StartLights, useBoardFit, useShortScreen } from '@/components/board';
 import { DeltaBar, LiveDelta } from '@/components/delta';
 import { HelmetAvatar } from '@/components/helmet';
 import { FlagBanner, type FlagKind } from '@/components/flag';
@@ -313,6 +313,9 @@ interface Driving {
 
 function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }) {
   const m = useMessages();
+  // The standings under the board may scroll; the board itself stays on screen.
+  const fit = useBoardFit(12);
+  const short = useShortScreen();
   const rules = room.rules;
   const track = getTrack(rules.track)!;
   const numbersPerLap = track.size * track.size;
@@ -580,12 +583,13 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
           </View>
           <View style={styles.raceTimer}>
             <Text style={[label, styles.small]}>{m.room.raceTime}</Text>
-            <Text style={[styles.timer, tabular]}>{formatLapTime(raceTime)}</Text>
+            <Text style={[styles.timer, short && styles.timerShort, tabular]}>{formatLapTime(raceTime)}</Text>
           </View>
         </View>
 
         <View style={styles.deltaBar}>
           <DeltaBar
+            compact={short}
             title={m.room.deltaRaceBar}
             delta={liveRace}
             reference={driving.refRace}
@@ -627,10 +631,14 @@ function RoomRace({ code, room, uid }: { code: string; room: Room; uid: string }
               <Text style={label}>{m.room.next}</Text>
               <Text style={[styles.nextValue, tabular]}>{driving.lap.targets[driving.lap.nextIndex]}</Text>
             </View>
-            <Board lap={driving.lap} wrongValue={wrongValue} onTap={onTap} />
+            <View onLayout={fit.onLayout}>
+              <Board lap={driving.lap} wrongValue={wrongValue} onTap={onTap} maxSide={fit.maxSide} />
+            </View>
           </>
         ) : (
-          <StartLights size={track.size} lit={lit} green={green} text={lightsText} />
+          <View onLayout={fit.onLayout}>
+            <StartLights size={track.size} lit={lit} green={green} text={lightsText} maxSide={fit.maxSide} />
+          </View>
         )}
 
         <LiveTable
@@ -997,6 +1005,7 @@ const styles = StyleSheet.create({
   positionOf: { fontSize: 26, color: colors.muted },
   raceTimer: { alignItems: 'flex-end' },
   timer: { fontFamily: fonts.heading, fontSize: 48, lineHeight: 54, color: colors.text },
+  timerShort: { fontSize: 36, lineHeight: 40 },
   gaps: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   deltaBar: { marginTop: 8 },
   deltas: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 6 },
