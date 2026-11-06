@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { prepareSounds } from '@/feedback';
 import { useLanguage } from '@/i18n';
 import { startAccountSync } from '@/net/account';
+import { startOnboarding } from '@/store/onboarding';
 import { colors } from '@/theme';
 
 /** Links that open a screen directly (e.g. an invite) still get the tabs underneath for Back. */
@@ -16,6 +17,7 @@ export const unstable_settings = { anchor: '(tabs)' };
 
 SplashScreen.preventAutoHideAsync();
 startAccountSync();
+startOnboarding();
 prepareSounds();
 
 export default function RootLayout() {

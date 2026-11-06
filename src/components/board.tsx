@@ -62,11 +62,14 @@ export function Board({
   wrongValue,
   onTap,
   maxSide,
+  hintValue = null,
 }: {
   lap: LapState;
   wrongValue: number | null;
   onTap: (value: number) => void;
   maxSide?: number;
+  /** Highlights this tile (the practice lap shows where the next number is). */
+  hintValue?: number | null;
 }) {
   const { gap, boardWidth, tileSize } = useBoardSize(lap.config.size, maxSide);
   return (
@@ -86,6 +89,7 @@ export function Board({
               styles.tile,
               { width: tileSize, height: tileSize },
               cleared && styles.tileCleared,
+              value === hintValue && !cleared && styles.tileHint,
               wrong && styles.tileWrong,
             ]}>
             <Text
@@ -150,6 +154,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tileCleared: { backgroundColor: colors.carbon },
+  tileHint: { borderWidth: 3, borderColor: colors.green },
   tileWrong: { borderColor: colors.yellow, borderWidth: 2, backgroundColor: '#3A3418' },
   tileText: { fontFamily: fonts.heading, color: colors.text },
   tileTextCleared: { color: colors.dim },
