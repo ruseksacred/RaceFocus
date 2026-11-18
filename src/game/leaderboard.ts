@@ -31,10 +31,16 @@ export interface RankedEntry extends LeaderboardEntry {
 }
 
 /**
- * TEMPORARY, for testing: solo practice laps also go to the leaderboards.
- * Set to false to keep records to online races only.
+ * For testing only: when true, solo practice laps also go to the leaderboards.
+ * Off for the store release: records come from online races only.
  */
-export const SOLO_LAPS_COUNT_FOR_RECORDS = true;
+export const SOLO_LAPS_COUNT_FOR_RECORDS = false;
+
+/**
+ * For testing only: when true, Leaders shows a switch that mixes in made-up drivers (`testEntries`).
+ * Off for the store release.
+ */
+export const SHOW_TEST_DATA = false;
 
 export function boardKey(track: TrackId, mode: Mode): string {
   return `${track}_${mode}`;
