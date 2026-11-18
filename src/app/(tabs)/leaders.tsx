@@ -10,6 +10,7 @@ import {
   helmetOf,
   MODES,
   rankEntries,
+  SHOW_TEST_DATA,
   SOLO_LAPS_COUNT_FOR_RECORDS,
   testEntries,
   TRACKS,
@@ -37,7 +38,7 @@ export default function Leaders() {
   const key = boardKey(track, mode);
   // The last data received, tagged with its board so a switch shows "loading" until new data comes.
   const [board, setBoard] = useState<{ key: string; view: BoardView; status: Status } | null>(null);
-  const testData = useSettings((state) => state.testData);
+  const testData = useSettings((state) => state.testData) && SHOW_TEST_DATA;
   const setTestData = useSettings((state) => state.setTestData);
   const isGuest = useAccount((state) => state.isGuest);
   const uid = currentUid();
@@ -89,20 +90,22 @@ export default function Leaders() {
         ))}
       </View>
 
-      <View style={styles.testRow}>
-        <View style={styles.testText}>
-          <Text style={styles.testTitle}>{m.leaders.testData}</Text>
-          <Text style={styles.note}>{m.leaders.testNote}</Text>
+      {SHOW_TEST_DATA && (
+        <View style={styles.testRow}>
+          <View style={styles.testText}>
+            <Text style={styles.testTitle}>{m.leaders.testData}</Text>
+            <Text style={styles.note}>{m.leaders.testNote}</Text>
+          </View>
+          <Switch
+            value={testData}
+            onValueChange={setTestData}
+            accessibilityLabel={m.leaders.testData}
+            trackColor={{ false: colors.line, true: colors.red }}
+            thumbColor={colors.white}
+            {...(Platform.OS === 'web' ? { activeThumbColor: colors.white } : {})}
+          />
         </View>
-        <Switch
-          value={testData}
-          onValueChange={setTestData}
-          accessibilityLabel={m.leaders.testData}
-          trackColor={{ false: colors.line, true: colors.red }}
-          thumbColor={colors.white}
-          {...(Platform.OS === 'web' ? { activeThumbColor: colors.white } : {})}
-        />
-      </View>
+      )}
 
       {status === 'loading' && ranked.length === 0 ? (
         <ActivityIndicator color={colors.text} style={styles.loading} />
